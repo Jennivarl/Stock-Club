@@ -1,7 +1,10 @@
 import "dotenv/config";
 import { Bot, type Context } from "grammy";
-import { addMember, createClub, getClub, getMembers, getRules, RULE_KEYS, setRule, type Rules } from "./db.js";
+import { addMember, createClub, db, getClub, getMember, getMembers, getRules, RULE_KEYS, setPaused, setRule, type Rules } from "./db.js";
 import { priceCard } from "./card.js";
+import {
+  attachPoll, checkMarket, checkRules, closeProposal, createProposal, dueProposals, getOpenProposalForTicker, proposalIntro, recordVote, tally,
+} from "./proposals.js";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) throw new Error("Missing TELEGRAM_BOT_TOKEN in .env");
@@ -20,6 +23,9 @@ const HELP = [
   "/members - who's in",
   "/rules - show club rules",
   "/price NVDA - live price card",
+  "/propose NVDA 20 - vote on everyone buying $20 of NVDA",
+  "/stop - any member can pause the club",
+  "/resume - un-pause (club creator)",
 ].join("\n");
 
 function rulesText(r: Rules): string {
@@ -29,6 +35,7 @@ function rulesText(r: Rules): string {
     `Max per week: $${r.max_per_week} per member  <code>max_week</code>`,
     `Vote passes at: ${r.vote_pass_percent}% yes  <code>pass</code>`,
     `Vote time: ${r.vote_hours} h  <code>hours</code>`,
+    `Max gap vs real stock price: ${r.max_gap_percent}%  <code>max_gap</code>`,
     `Max price difference between issuers: ${r.max_spread_percent}%  <code>max_spread</code>`,
     `Allowed stocks: ${r.allowed_tickers ?? "any"}  <code>allowed</code>`,
     r.paused ? "⛔ Club is <b>paused</b>." : "",
@@ -85,7 +92,7 @@ bot.command("rules", async (ctx) => {
   } else {
     value = Number(raw);
     const limits: Record<string, [number, number]> = {
-      max_per_trade: [1, 1000], max_per_week: [1, 5000], vote_pass_percent: [50, 100], vote_hours: [0.05, 72], max_spread_percent: [0.1, 20],
+      max_per_trade: [1, 1000], max_per_week: [1, 5000], vote_pass_percent: [50, 100], vote_hours: [0.05, 72], max_spread_percent: [0.1, 20], max_gap_percent: [0.1, 20],
     };
     const [min, max] = limits[column];
     if (!Number.isFinite(value) || value < min || value > max) return ctx.reply(`${key} must be a number from ${min} to ${max}.`);
@@ -106,6 +113,80 @@ bot.command("price", async (ctx) => {
   }
 });
 
+bot.command("propose", async (ctx) => {
+  const club = isGroup(ctx) ? getClub(ctx.chat!.id) : undefined;
+  if (!club) return ctx.reply("Run /propose inside a club group. No club yet? /club start");
+  const member = getMember(club.id, ctx.from!.id);
+  if (!member) return ctx.reply("Only members can propose. Tap /join first.");
+  const [rawTicker, rawAmount] = ctx.match.trim().split(/s+/);
+  if (!rawTicker || !rawAmount) return ctx.reply("Use: /propose NVDA 20  (stock, then dollars per member)");
+  const ticker = rawTicker.toUpperCase().replace(/[^A-Z.]/g, "");
+  const amount = Number(rawAmount.replace("$", ""));
+  const rules = getRules(club.id);
+
+  const ruleNo = checkRules(rules, ticker, amount, member);
+  if (ruleNo) return ctx.reply(ruleNo, { parse_mode: "HTML" });
+  if (getOpenProposalForTicker(club.id, ticker)) return ctx.reply(`There's already an open vote on ${ticker}. Vote on that one first.`);
+
+  let card;
+  try {
+    card = await priceCard(ticker);
+  } catch (e) {
+    console.error("propose price error", e);
+    return ctx.reply("⚠️ Couldn't get prices from Binance right now. Try again in a minute.");
+  }
+  const marketNo = checkMarket(card, rules);
+  if (marketNo) return ctx.reply(marketNo, { parse_mode: "HTML" });
+
+  const p = createProposal(club.id, member.id, ticker, amount, rules.vote_hours);
+  await ctx.reply(proposalIntro(club, member, p, card, rules), { parse_mode: "HTML" });
+  const poll = await ctx.api.sendPoll(ctx.chat!.id, `Buy ${amount} of ${ticker} each?`, [{ text: "👍 Yes, I'm in" }, { text: "👎 No" }], {
+    is_anonymous: false,
+  });
+  attachPoll(p.id, poll.poll!.id, poll.message_id);
+});
+
+bot.on("poll_answer", async (ctx) => {
+  const a = ctx.pollAnswer;
+  if (!a.user) return;
+  const p = recordVote(a.poll_id, a.user.id, a.option_ids);
+  if (!p) return;
+  // Everyone voted? Close early instead of waiting for the timer.
+  const t = tally(p);
+  if (t.voted >= t.members) {
+    const { telegram_chat_id } = db.prepare("SELECT telegram_chat_id FROM clubs WHERE id = ?").get(p.club_id) as { telegram_chat_id: number };
+    await closeProposal(ctx.api, p, telegram_chat_id);
+  }
+});
+
+bot.command("stop", async (ctx) => {
+  const club = isGroup(ctx) ? getClub(ctx.chat!.id) : undefined;
+  if (!club) return ctx.reply("No club here yet.");
+  if (!getMember(club.id, ctx.from!.id)) return ctx.reply("Only members can stop the club.");
+  setPaused(club.id, true);
+  await ctx.reply(`⛔ ${esc(userName(ctx))} paused the club. No new votes and no buying until the club creator uses /resume.`);
+});
+
+bot.command("resume", async (ctx) => {
+  const club = isGroup(ctx) ? getClub(ctx.chat!.id) : undefined;
+  if (!club) return ctx.reply("No club here yet.");
+  if (ctx.from!.id !== club.created_by) return ctx.reply("Only the club creator can /resume for now.");
+  setPaused(club.id, false);
+  await ctx.reply("✅ Club resumed. Proposals are open again.");
+});
+
+// Close votes when their time is up. Runs every 20 s; also catches votes that ended while the bot was down.
+async function sweep() {
+  for (const p of dueProposals()) {
+    try {
+      await closeProposal(bot.api, p, p.telegram_chat_id);
+    } catch (e) {
+      console.error("close error", p.id, e);
+    }
+  }
+}
+setInterval(sweep, 20_000);
+
 bot.catch((err) => console.error("bot error", err.error));
 
 await bot.api.setMyCommands([
@@ -114,7 +195,10 @@ await bot.api.setMyCommands([
   { command: "members", description: "who's in the club" },
   { command: "rules", description: "show or change club rules" },
   { command: "price", description: "live price card: /price NVDA" },
+  { command: "propose", description: "start a vote: /propose NVDA 20" },
+  { command: "stop", description: "pause the club (any member)" },
+  { command: "resume", description: "un-pause the club (creator)" },
   { command: "help", description: "how Stock Club works" },
 ]);
 console.log("Stock Club bot running");
-bot.start();
+bot.start({ allowed_updates: ["message", "poll_answer"] });

@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS rules (
   vote_pass_percent INTEGER NOT NULL DEFAULT 60,
   vote_hours REAL NOT NULL DEFAULT 2,
   max_spread_percent REAL NOT NULL DEFAULT 2, -- max price difference between issuers we accept
+  max_gap_percent REAL NOT NULL DEFAULT 2,    -- max on-chain vs real stock price difference
   allowed_tickers TEXT,                       -- comma list, NULL = any
   paused INTEGER NOT NULL DEFAULT 0
 );
@@ -37,12 +38,52 @@ CREATE TABLE IF NOT EXISTS members (
   joined_at TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE (club_id, telegram_user_id)
 );
+
+CREATE TABLE IF NOT EXISTS proposals (
+  id INTEGER PRIMARY KEY,
+  club_id INTEGER NOT NULL REFERENCES clubs(id),
+  proposer_id INTEGER NOT NULL REFERENCES members(id),
+  ticker TEXT NOT NULL,
+  amount_usd REAL NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open',   -- open | passed | failed | refused | cancelled
+  platform TEXT,                         -- issuer picked when the vote closed
+  token_address TEXT,
+  poll_id TEXT UNIQUE,
+  poll_message_id INTEGER,
+  note TEXT,                             -- why it failed / was refused
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  closes_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS votes (
+  proposal_id INTEGER NOT NULL REFERENCES proposals(id),
+  member_id INTEGER NOT NULL REFERENCES members(id),
+  yes INTEGER NOT NULL,
+  at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (proposal_id, member_id)
+);
+
+CREATE TABLE IF NOT EXISTS orders (
+  id INTEGER PRIMARY KEY,
+  proposal_id INTEGER NOT NULL REFERENCES proposals(id),
+  member_id INTEGER NOT NULL REFERENCES members(id),
+  mode TEXT NOT NULL,                    -- tap | autopilot
+  amount_usd REAL NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending', -- pending | submitted | filled | failed | skipped
+  tx_hash TEXT,
+  error TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 `);
+
+// Small migrations for databases made by older versions.
+const ruleCols = (db.prepare("PRAGMA table_info(rules)").all() as { name: string }[]).map((c) => c.name);
+if (!ruleCols.includes("max_gap_percent")) db.exec("ALTER TABLE rules ADD COLUMN max_gap_percent REAL NOT NULL DEFAULT 2");
 
 export type Club = { id: number; telegram_chat_id: number; name: string; created_by: number };
 export type Rules = {
   club_id: number; max_per_trade: number; max_per_week: number; vote_pass_percent: number;
-  vote_hours: number; max_spread_percent: number; allowed_tickers: string | null; paused: number;
+  vote_hours: number; max_spread_percent: number; max_gap_percent: number; allowed_tickers: string | null; paused: number;
 };
 export type Member = { id: number; club_id: number; telegram_user_id: number; name: string; wallet_address: string | null };
 
@@ -78,10 +119,33 @@ export const RULE_KEYS: Record<string, keyof Rules> = {
   pass: "vote_pass_percent",
   hours: "vote_hours",
   max_spread: "max_spread_percent",
+  max_gap: "max_gap_percent",
   allowed: "allowed_tickers",
 };
 
 export function setRule(clubId: number, column: keyof Rules, value: number | string | null) {
   if (!Object.values(RULE_KEYS).includes(column)) throw new Error("unknown rule");
   db.prepare(`UPDATE rules SET ${column} = ? WHERE club_id = ?`).run(value, clubId);
+}
+
+export type Proposal = {
+  id: number; club_id: number; proposer_id: number; ticker: string; amount_usd: number; status: string;
+  platform: string | null; token_address: string | null; poll_id: string | null; poll_message_id: number | null;
+  note: string | null; created_at: string; closes_at: string;
+};
+
+export function getMember(clubId: number, userId: number): Member | undefined {
+  return db.prepare("SELECT * FROM members WHERE club_id = ? AND telegram_user_id = ?").get(clubId, userId) as Member | undefined;
+}
+
+export function setPaused(clubId: number, paused: boolean) {
+  db.prepare("UPDATE rules SET paused = ? WHERE club_id = ?").run(paused ? 1 : 0, clubId);
+}
+
+// USD a member has bought (or is buying) in the last 7 days.
+export function spentThisWeek(memberId: number): number {
+  const r = db.prepare(
+    "SELECT COALESCE(SUM(amount_usd), 0) AS s FROM orders WHERE member_id = ? AND status IN ('pending','submitted','filled') AND created_at >= datetime('now', '-7 days')",
+  ).get(memberId) as { s: number };
+  return r.s;
 }
