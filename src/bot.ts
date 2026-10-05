@@ -140,7 +140,7 @@ bot.command("propose", async (ctx) => {
 
   const p = createProposal(club.id, member.id, ticker, amount, rules.vote_hours);
   await ctx.reply(proposalIntro(club, member, p, card, rules), { parse_mode: "HTML" });
-  const poll = await ctx.api.sendPoll(ctx.chat!.id, `Buy ${amount} of ${ticker} each?`, [{ text: "👍 Yes, I'm in" }, { text: "👎 No" }], {
+  const poll = await ctx.api.sendPoll(ctx.chat!.id, `Buy $${amount} of ${ticker} each?`, [{ text: "👍 Yes, I'm in" }, { text: "👎 No" }], {
     is_anonymous: false,
   });
   attachPoll(p.id, poll.poll!.id, poll.message_id);
