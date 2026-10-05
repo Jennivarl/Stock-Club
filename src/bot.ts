@@ -118,7 +118,7 @@ bot.command("propose", async (ctx) => {
   if (!club) return ctx.reply("Run /propose inside a club group. No club yet? /club start");
   const member = getMember(club.id, ctx.from!.id);
   if (!member) return ctx.reply("Only members can propose. Tap /join first.");
-  const [rawTicker, rawAmount] = ctx.match.trim().split(/s+/);
+  const [rawTicker, rawAmount] = ctx.match.trim().split(/\s+/);
   if (!rawTicker || !rawAmount) return ctx.reply("Use: /propose NVDA 20  (stock, then dollars per member)");
   const ticker = rawTicker.toUpperCase().replace(/[^A-Z.]/g, "");
   const amount = Number(rawAmount.replace("$", ""));
