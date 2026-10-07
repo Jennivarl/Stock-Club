@@ -79,13 +79,20 @@ CREATE TABLE IF NOT EXISTS orders (
 // Small migrations for databases made by older versions.
 const ruleCols = (db.prepare("PRAGMA table_info(rules)").all() as { name: string }[]).map((c) => c.name);
 if (!ruleCols.includes("max_gap_percent")) db.exec("ALTER TABLE rules ADD COLUMN max_gap_percent REAL NOT NULL DEFAULT 2");
+const orderCols = (db.prepare("PRAGMA table_info(orders)").all() as { name: string }[]).map((c) => c.name);
+// Agentic Wallet swaps can return an orderId that its own order list doesn't know, so keep both.
+if (!orderCols.includes("returned_order_id")) db.exec("ALTER TABLE orders ADD COLUMN returned_order_id TEXT");
+if (!orderCols.includes("real_order_id")) db.exec("ALTER TABLE orders ADD COLUMN real_order_id TEXT");
+if (!orderCols.includes("qty")) db.exec("ALTER TABLE orders ADD COLUMN qty TEXT");
 
 export type Club = { id: number; telegram_chat_id: number; name: string; created_by: number };
 export type Rules = {
   club_id: number; max_per_trade: number; max_per_week: number; vote_pass_percent: number;
   vote_hours: number; max_spread_percent: number; max_gap_percent: number; allowed_tickers: string | null; paused: number;
 };
-export type Member = { id: number; club_id: number; telegram_user_id: number; name: string; wallet_address: string | null };
+export type Member = {
+  id: number; club_id: number; telegram_user_id: number; name: string; wallet_address: string | null; autopilot_on: number;
+};
 
 export function getClub(chatId: number): Club | undefined {
   return db.prepare("SELECT * FROM clubs WHERE telegram_chat_id = ?").get(chatId) as Club | undefined;
@@ -148,4 +155,27 @@ export function spentThisWeek(memberId: number): number {
     "SELECT COALESCE(SUM(amount_usd), 0) AS s FROM orders WHERE member_id = ? AND status IN ('pending','submitted','filled') AND created_at >= datetime('now', '-7 days')",
   ).get(memberId) as { s: number };
   return r.s;
+}
+
+// Autopilot is per Telegram user (one Agentic Wallet each), so it's switched on in every club they're in.
+export function setAutopilot(telegramUserId: number, on: boolean) {
+  db.prepare("UPDATE members SET autopilot_on = ? WHERE telegram_user_id = ?").run(on ? 1 : 0, telegramUserId);
+}
+
+export function clubsOf(telegramUserId: number): Club[] {
+  return db.prepare("SELECT c.* FROM clubs c JOIN members m ON m.club_id = c.id WHERE m.telegram_user_id = ?").all(telegramUserId) as Club[];
+}
+
+export function createOrder(proposalId: number, memberId: number, mode: "tap" | "autopilot", amount: number): number {
+  const r = db.prepare("INSERT INTO orders (proposal_id, member_id, mode, amount_usd) VALUES (?, ?, ?, ?)").run(proposalId, memberId, mode, amount);
+  return Number(r.lastInsertRowid);
+}
+
+export function finishOrder(
+  orderId: number,
+  f: { status: string; txHash?: string; error?: string; returnedOrderId?: string; realOrderId?: string; qty?: string },
+) {
+  db.prepare(
+    "UPDATE orders SET status = ?, tx_hash = ?, error = ?, returned_order_id = ?, real_order_id = ?, qty = ? WHERE id = ?",
+  ).run(f.status, f.txHash ?? null, f.error ?? null, f.returnedOrderId ?? null, f.realOrderId ?? null, f.qty ?? null, orderId);
 }

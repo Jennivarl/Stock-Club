@@ -1,7 +1,10 @@
 import "dotenv/config";
 import { Bot, type Context } from "grammy";
-import { addMember, createClub, db, getClub, getMember, getMembers, getRules, RULE_KEYS, setPaused, setRule, type Rules } from "./db.js";
+import {
+  addMember, clubsOf, createClub, db, getClub, getMember, getMembers, getRules, RULE_KEYS, setAutopilot, setPaused, setRule, type Rules,
+} from "./db.js";
 import { priceCard } from "./card.js";
+import { autopilotAvailable, isConnected, signout, startSignin, waitForSignin, walletInfo } from "./autopilot.js";
 import {
   attachPoll, checkMarket, checkRules, closeProposal, createProposal, dueProposals, getOpenProposalForTicker, proposalIntro, recordVote, tally,
 } from "./proposals.js";
@@ -26,6 +29,10 @@ const HELP = [
   "/propose NVDA 20 - vote on everyone buying $20 of NVDA",
   "/stop - any member can pause the club",
   "/resume - un-pause (club creator)",
+  "",
+  "<b>In a private chat with me:</b>",
+  "/autopilot - connect your Binance Agentic Wallet so I buy for you when a vote passes",
+  "/autopilot off - stop buying for you",
 ].join("\n");
 
 function rulesText(r: Rules): string {
@@ -42,7 +49,84 @@ function rulesText(r: Rules): string {
   ].filter(Boolean).join("\n");
 }
 
-bot.command(["start", "help"], (ctx) => ctx.reply(HELP, { parse_mode: "HTML" }));
+bot.command(["start", "help"], async (ctx) => {
+  // Deep link from a group: t.me/<bot>?start=autopilot
+  if (ctx.chat?.type === "private" && ctx.match === "autopilot") return autopilotCommand(ctx, "");
+  await ctx.reply(HELP, { parse_mode: "HTML" });
+});
+
+// ---- Autopilot (Binance Agentic Wallet) ----
+const signinInProgress = new Set<number>();
+
+async function autopilotCommand(ctx: Context, arg: string) {
+  const uid = ctx.from!.id;
+  if (ctx.chat?.type !== "private") {
+    const me = await ctx.api.getMe();
+    return ctx.reply(`Autopilot is set up in a private chat (it shows a login link just for you): t.me/${me.username}?start=autopilot`);
+  }
+  if (!clubsOf(uid).length) return ctx.reply("Join a club first: /join in your club's group. Then come back here.");
+  if (!autopilotAvailable()) return ctx.reply("Autopilot isn't available on this server right now.");
+
+  if (arg === "off") {
+    setAutopilot(uid, false);
+    await signout(uid);
+    return ctx.reply("🛑 Autopilot is off and I signed out of your Agentic Wallet. I won't buy for you anymore.");
+  }
+
+  if (await isConnected(uid)) {
+    setAutopilot(uid, true);
+    const w = await walletInfo(uid);
+    const s = w.settings ?? {};
+    return ctx.reply(
+      [
+        "🤖 <b>Autopilot is ON.</b> When your club votes yes and you voted yes, I buy for you.",
+        "",
+        `Wallet (BSC): <code>${w.address ?? "?"}</code>`,
+        `Balance: ${w.usdt.toFixed(2)} USDT, ${w.bnb.toFixed(5)} BNB (for fees)`,
+        `Binance daily limit: $${s.dailyLimit ?? "?"} (change it only in the Binance App)`,
+        `Login ends: ${s.inactiveSignOutTime ? new Date(s.inactiveSignOutTime).toUTCString() : "?"} if unused`,
+        "",
+        "Top up: send USDT + a little BNB on <b>BNB Smart Chain (BEP20)</b> to the address above. Not opBNB.",
+        "Turn off: /autopilot off",
+      ].join("\n"),
+      { parse_mode: "HTML" },
+    );
+  }
+
+  if (signinInProgress.has(uid)) return ctx.reply("I already sent you a login link. Approve it in the Binance App (it lasts 5 minutes).");
+  const s = await startSignin(uid);
+  if ("error" in s) return ctx.reply(`⚠️ Couldn't start the Binance login: ${s.error}`);
+  if ("already" in s) return autopilotCommand(ctx, arg);
+
+  signinInProgress.add(uid);
+  await ctx.reply(
+    [
+      "🔐 <b>Connect your Binance Agentic Wallet</b>",
+      "",
+      `1. Open this link on your phone: ${s.url}`,
+      `2. Check the code in the Binance App is <b>${s.code}</b>`,
+      "3. If asked, create the Agentic Wallet. Tick <b>Secure Auto Sign</b>, then Confirm.",
+      "",
+      "The request comes from our server in Frankfurt, Germany. That's expected.",
+      "You have 5 minutes. I'll tell you when it worked.",
+    ].join("\n"),
+    { parse_mode: "HTML", link_preview_options: { is_disabled: true } },
+  );
+  // Waits in the background (up to ~5 min) so the bot keeps answering others.
+  waitForSignin(uid, s.qrCodeId)
+    .then(async (r) => {
+      if (r.ok) {
+        setAutopilot(uid, true);
+        await ctx.reply("✅ Connected! Autopilot is ON. Send /autopilot to see your wallet, balance and limits.");
+      } else {
+        await ctx.reply(`❌ Login didn't finish (${r.error ?? "not approved"}). Send /autopilot to get a new link.`);
+      }
+    })
+    .catch((e) => console.error("signin wait error", e))
+    .finally(() => signinInProgress.delete(uid));
+}
+
+bot.command("autopilot", (ctx) => autopilotCommand(ctx, ctx.match.trim().toLowerCase()));
 
 bot.command("club", async (ctx) => {
   const [sub, ...rest] = ctx.match.trim().split(/\s+/);
@@ -198,6 +282,7 @@ await bot.api.setMyCommands([
   { command: "propose", description: "start a vote: /propose NVDA 20" },
   { command: "stop", description: "pause the club (any member)" },
   { command: "resume", description: "un-pause the club (creator)" },
+  { command: "autopilot", description: "let me buy for you (private chat)" },
   { command: "help", description: "how Stock Club works" },
 ]);
 console.log("Stock Club bot running");

@@ -1,8 +1,9 @@
 // Propose -> vote -> pass/fail. Every check gives a plain-words reason when it says no.
 import type { Api } from "grammy";
-import { db, getMembers, getRules, spentThisWeek, type Club, type Member, type Proposal, type Rules } from "./db.js";
+import { createOrder, db, finishOrder, getMembers, getRules, spentThisWeek, type Club, type Member, type Proposal, type Rules } from "./db.js";
 import { priceCard, type Card } from "./card.js";
-import { ISSUER_NAME } from "./rwa.js";
+import { ISSUER_NAME, type Quote } from "./rwa.js";
+import { autopilotAvailable, buy } from "./autopilot.js";
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -144,10 +145,54 @@ export async function closeProposal(api: Api, p: Proposal, chatId: number): Prom
   await api.sendMessage(
     chatId,
     `${head}\n\n✅ <b>Passed!</b> Buying via <b>${ISSUER_NAME[best.platformId]}</b> (${esc(best.tokenSymbol)}).\n` +
-      `Yes-voters: ${names}\nEach of you buys $${p.amount_usd} in your own wallet. I'll send you a private Buy button.\n` +
-      `<i>(Buy buttons arrive in the next update.)</i>`,
+      `Yes-voters: ${names}. Each buys $${p.amount_usd} in their own wallet.`,
     { parse_mode: "HTML" },
   );
+  await runBuys(api, chatId, p, t.yes, best, rules);
+}
+
+// Ondo quotes failed under $5 in our tests ("From token value greater than 5 USD").
+const ONDO_MIN_USD = 5;
+
+async function runBuys(api: Api, chatId: number, p: Proposal, yes: Member[], best: Quote, rules: Rules) {
+  const lines: string[] = [];
+  const auto = yes.filter((m) => m.autopilot_on);
+  if (auto.length && autopilotAvailable()) {
+    await api.sendMessage(chatId, `🤖 Autopilot is buying for ${auto.length} member${auto.length > 1 ? "s" : ""}…`);
+  }
+  for (const m of yes) {
+    const name = esc(m.name);
+    if (!m.autopilot_on || !autopilotAvailable()) {
+      lines.push(`👆 ${name}: no Autopilot yet. Turn it on with /autopilot (private chat with me).`);
+      continue;
+    }
+    // Check the club's rules again for each member right before spending.
+    const left = rules.max_per_week - spentThisWeek(m.id);
+    if (p.amount_usd > left) {
+      lines.push(`⛔ ${name}: skipped, over the $${rules.max_per_week}/week limit ($${Math.max(0, left).toFixed(2)} left).`);
+      continue;
+    }
+    if (best.platformId === "ondo" && p.amount_usd <= ONDO_MIN_USD) {
+      lines.push(`⛔ ${name}: skipped, Ondo needs more than $${ONDO_MIN_USD} per trade.`);
+      continue;
+    }
+    const orderId = createOrder(p.id, m.id, "autopilot", p.amount_usd);
+    const r = await buy(m.telegram_user_id, best.tokenContractAddress, p.amount_usd);
+    finishOrder(orderId, { ...r, status: r.status });
+    if (r.status === "filled") {
+      const link = r.txHash ? ` · <a href="https://bscscan.com/tx/${r.txHash}">BscScan</a>` : "";
+      lines.push(`✅ ${name} bought ${Number(r.qty ?? 0).toFixed(6)} ${esc(best.tokenSymbol)} for $${p.amount_usd}${link}`);
+    } else if (r.status === "submitted") {
+      lines.push(`⏳ ${name}: sent, still confirming. I'll keep the record.`);
+    } else {
+      lines.push(`❌ ${name}: ${esc(r.error ?? "failed")}`);
+    }
+  }
+  const bought = lines.filter((l) => l.startsWith("✅")).length;
+  await api.sendMessage(chatId, `🧾 <b>Results: ${bought} of ${yes.length} bought</b>\n${lines.join("\n")}`, {
+    parse_mode: "HTML",
+    link_preview_options: { is_disabled: true },
+  });
 }
 
 export function proposalIntro(club: Club, proposer: Member, p: Proposal, card: Card, rules: Rules): string {
