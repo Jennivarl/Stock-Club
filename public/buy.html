@@ -35,6 +35,8 @@
     <button id="btnBinance">Connect Binance Wallet</button>
     <button id="btnOther" class="secondary">Other wallet (copy link)</button>
     <button id="btnOpen" class="hidden">Open Binance Wallet</button>
+    <button id="btnBrowser" class="secondary">Use Binance Wallet's browser instead (copy link)</button>
+    <p id="browserHint" class="muted hidden">Link copied. In the Binance app: Wallet → More → <b>DApps</b> → paste the link in the search/address bar → open it, then tap <b>Connect Binance Wallet</b> there.</p>
     <p id="wcHint" class="muted hidden">Tap “Open Binance Wallet”, approve the connection, then come back to Telegram.</p>
   </div>
 
@@ -108,7 +110,10 @@ async function connect(useBinance) {
     // (sign-client reads WALLETCONNECT_DEEPLINK_CHOICE and opens `${href}/wc?requestId=...`).
     if (useBinance) localStorage.setItem("WALLETCONNECT_DEEPLINK_CHOICE", JSON.stringify({ href: BINANCE_WC, name: "Binance Wallet" }));
     else localStorage.removeItem("WALLETCONNECT_DEEPLINK_CHOICE");
-    log("connect-start", useBinance ? "binance" : "other");
+    log("connect-start", (useBinance ? "binance" : "other") + (window.ethereum ? " injected" : ""));
+    // Start a fresh WalletConnect session each time: a session saved hours ago may be gone on the wallet side
+    // (Oct 8: reused session -> request never reached the wallet).
+    if (!window.ethereum) for (const k of Object.keys(localStorage)) if (k.startsWith("wc@2")) localStorage.removeItem(k);
     provider = await getProvider();
     log("provider-ready", window.ethereum ? "injected" : "walletconnect");
     if (provider.on && !window.ethereum) {
@@ -216,6 +221,12 @@ async function buy() {
 $("btnBinance").onclick = () => connect(true);
 $("btnOther").onclick = () => connect(false);
 $("btnOpen").onclick = () => { log("open-binance-tap"); openLink(pairLink); };
+$("btnBrowser").onclick = async () => {
+  log("browser-copy");
+  await navigator.clipboard?.writeText(location.href).catch(() => {});
+  show("browserHint");
+};
+if (window.ethereum) { show("btnBrowser", false); $("btnBinance").textContent = "Connect Binance Wallet"; }
 $("btnConfirm").onclick = () => { const u = walletLink(); log("open-confirm-tap", u); openLink(u); };
 $("btnBuy").onclick = buy;
 load();
