@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import type { Api } from "grammy";
 import { createOrder, createTapOrder, db, finishOrder, getMembers, getRules, spentThisWeek, type Club, type Member, type Proposal, type Rules } from "./db.js";
 import { priceCard, type Card } from "./card.js";
-import { ISSUER_NAME, type Quote } from "./rwa.js";
+import { ISSUER_NAME, isTradable, type Quote } from "./rwa.js";
 import { autopilotAvailable, buy } from "./autopilot.js";
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -29,16 +29,28 @@ export function checkRules(rules: Rules, ticker: string, amount: number, propose
   return null;
 }
 
+const ONDO_MIN_USD = 5;
+
+// Cheapest issuer that is trading AND accepts this amount (Ondo: "Minimum order amount is 5 USD").
+export function pickIssuer(card: Card, amount: number): Quote | undefined {
+  return card.quotes
+    .filter((q) => isTradable(q) && !(q.platformId === "ondo" && amount < ONDO_MIN_USD))
+    .sort((a, b) => a.sharePrice - b.sharePrice)[0];
+}
+
 // Market checks on a fresh price card. Returns a refusal reason, or null if OK.
-export function checkMarket(card: Card, rules: Rules): string | null {
+export function checkMarket(card: Card, rules: Rules, amount: number): string | null {
   if (!card.quotes.length) return card.text;
   if (!card.best) {
     const why = card.quotes.map((q) => `${ISSUER_NAME[q.platformId]}: ${q.statusInfo?.reasonMsg ?? q.statusInfo?.reasonCode ?? "no status"}`).join("; ");
     return `⛔ Nobody is trading ${esc(card.quotes[0].underlyingTicker)} right now (${esc(why)}).`;
   }
-  if (card.gapPct !== undefined && Math.abs(card.gapPct) > rules.max_gap_percent) {
-    const dir = card.gapPct > 0 ? "above" : "below";
-    return `⛔ The on-chain price is <b>${card.gapPct.toFixed(2)}% ${dir}</b> the real stock. The club's limit is ${rules.max_gap_percent}%. Too risky right now.`;
+  const pick = pickIssuer(card, amount);
+  if (!pick) return `⛔ Only Ondo trades ${esc(card.quotes[0].underlyingTicker)} right now, and Ondo needs at least $${ONDO_MIN_USD} per trade.`;
+  const gapPct = card.real ? (pick.sharePrice / card.real.price - 1) * 100 : undefined;
+  if (gapPct !== undefined && Math.abs(gapPct) > rules.max_gap_percent) {
+    const dir = gapPct > 0 ? "above" : "below";
+    return `⛔ The on-chain price is <b>${gapPct.toFixed(2)}% ${dir}</b> the real stock. The club's limit is ${rules.max_gap_percent}%. Too risky right now.`;
   }
   if (card.spreadPct !== undefined && card.spreadPct > rules.max_spread_percent) {
     return `⛔ bStocks and Ondo prices are <b>${card.spreadPct.toFixed(2)}% apart</b> (limit ${rules.max_spread_percent}%). Something looks off, so I'm not buying.`;
@@ -133,14 +145,14 @@ export async function closeProposal(api: Api, p: Proposal, chatId: number): Prom
     await api.sendMessage(chatId, `${head}\n\n✅ The vote passed, but I couldn't get fresh prices from Binance, so I'm not buying. Propose it again in a bit.`, { parse_mode: "HTML" });
     return;
   }
-  const marketNo = checkMarket(card, rules);
+  const marketNo = checkMarket(card, rules, p.amount_usd);
   if (marketNo) {
     setStatus(p.id, "refused", marketNo.replace(/<[^>]+>/g, ""));
     await api.sendMessage(chatId, `${head}\n\n✅ The vote passed, but I checked again right now:\n${marketNo}`, { parse_mode: "HTML" });
     return;
   }
 
-  const best = card.best!;
+  const best = pickIssuer(card, p.amount_usd)!; // checkMarket made sure there is one
   setStatus(p.id, "passed", null, best.platformId, best.tokenContractAddress);
   const names = t.yes.map((m) => esc(m.name)).join(", ");
   await api.sendMessage(
@@ -152,7 +164,6 @@ export async function closeProposal(api: Api, p: Proposal, chatId: number): Prom
   await runBuys(api, chatId, p, t.yes, best, rules);
 }
 
-const ONDO_MIN_USD = 5;
 export const WEB_URL = process.env.WEB_URL ?? "https://164-90-183-99.sslip.io";
 
 async function runBuys(api: Api, chatId: number, p: Proposal, yes: Member[], best: Quote, rules: Rules) {

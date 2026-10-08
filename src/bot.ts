@@ -237,7 +237,7 @@ bot.command("propose", async (ctx) => {
     console.error("propose price error", e);
     return ctx.reply("⚠️ Couldn't get prices from Binance right now. Try again in a minute.");
   }
-  const marketNo = checkMarket(card, rules);
+  const marketNo = checkMarket(card, rules, amount);
   if (marketNo) return ctx.reply(marketNo, { parse_mode: "HTML" });
 
   const p = createProposal(club.id, member.id, ticker, amount, rules.vote_hours);
