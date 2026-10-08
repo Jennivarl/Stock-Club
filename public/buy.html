@@ -34,7 +34,8 @@
     <p class="muted">Use the wallet that holds your USDT and a little BNB on BNB Smart Chain.</p>
     <button id="btnBinance">Connect Binance Wallet</button>
     <button id="btnOther" class="secondary">Other wallet (copy link)</button>
-    <p id="wcHint" class="muted hidden">After you approve in your wallet, come back to Telegram.</p>
+    <button id="btnOpen" class="hidden">Open Binance Wallet</button>
+    <p id="wcHint" class="muted hidden">Tap “Open Binance Wallet”, approve the connection, then come back to Telegram.</p>
   </div>
 
   <div id="buyBox" class="card hidden">
@@ -55,7 +56,15 @@ const say = (html, cls = "") => { show("status"); $("status").innerHTML = `<span
 const openLink = (u) => (tg?.openLink ? tg.openLink(u) : window.open(u, "_blank"));
 const BINANCE_WC = "https://app.binance.com/cedefi"; // from WalletConnect's wallet directory
 
-let provider, wallet, plan, order;
+let provider, wallet, plan, order, pairLink;
+
+// Send what happens on the phone to our server log, so we see real errors instead of guessing.
+function log(event, detail = "") {
+  fetch(`/api/log?t=${encodeURIComponent(t)}`, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ event, detail: String(detail).slice(0, 500), ua: navigator.userAgent, tg: tg?.platform }) }).catch(() => {});
+}
+window.addEventListener("error", (e) => log("js-error", e.message));
+window.addEventListener("unhandledrejection", (e) => log("promise-error", e.reason?.message ?? e.reason));
 
 async function api(path, body) {
   const r = await fetch(`/api/${path}?t=${encodeURIComponent(t)}`, body
@@ -94,22 +103,27 @@ async function connect(useBinance) {
     // (sign-client reads WALLETCONNECT_DEEPLINK_CHOICE and opens `${href}/wc?requestId=...`).
     if (useBinance) localStorage.setItem("WALLETCONNECT_DEEPLINK_CHOICE", JSON.stringify({ href: BINANCE_WC, name: "Binance Wallet" }));
     else localStorage.removeItem("WALLETCONNECT_DEEPLINK_CHOICE");
+    log("connect-start", useBinance ? "binance" : "other");
     provider = await getProvider();
+    log("provider-ready", window.ethereum ? "injected" : "walletconnect");
     if (provider.on && !window.ethereum) {
       provider.on("display_uri", async (uri) => {
+        log("display_uri");
         // Same format WalletConnect's modal builds: `${universal}/wc?uri=${encodeURIComponent(uri)}`
-        if (useBinance) openLink(`${BINANCE_WC}/wc?uri=${encodeURIComponent(uri)}`);
+        // Opened from a button tap: Telegram may block opening apps without a tap.
+        pairLink = `${BINANCE_WC}/wc?uri=${encodeURIComponent(uri)}`;
+        if (useBinance) { show("btnOpen"); show("wcHint"); say("Now tap <b>Open Binance Wallet</b>."); }
         else { await navigator.clipboard?.writeText(uri).catch(() => {}); say(`Link copied. Paste it in your wallet's WalletConnect scanner:<br><code>${uri}</code>`); }
-        show("wcHint");
       });
     }
     const accounts = provider.enable ? await provider.enable() : await provider.request({ method: "eth_requestAccounts" });
     wallet = accounts[0];
+    log("connected", wallet);
     await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x38" }] }).catch(() => {});
     show("connectBox", false);
     say(`Connected: <code>${wallet}</code>`, "ok");
     await makePlan();
-  } catch (e) { say(`Couldn't connect: ${e.message}`, "bad"); }
+  } catch (e) { log("connect-error", e?.message ?? e); say(`Couldn't connect: ${e?.message ?? e}`, "bad"); }
 }
 
 async function makePlan() {
@@ -157,6 +171,7 @@ async function buy() {
 
 $("btnBinance").onclick = () => connect(true);
 $("btnOther").onclick = () => connect(false);
+$("btnOpen").onclick = () => { log("open-binance-tap"); openLink(pairLink); };
 $("btnBuy").onclick = buy;
 load();
 </script>

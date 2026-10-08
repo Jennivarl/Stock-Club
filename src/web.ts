@@ -47,6 +47,12 @@ export function startWeb(api: Api) {
         });
       }
 
+      if (req.method === "POST" && url.pathname === "/api/log") {
+        const b = await readJson(req).catch(() => ({}));
+        console.log("miniapp", JSON.stringify({ order: order!.id, ...b }).slice(0, 800));
+        return send(res, 200, { ok: true });
+      }
+
       if (req.method === "GET" && url.pathname === "/api/receipt") {
         const h = url.searchParams.get("h");
         if (!isHash(h)) return send(res, 400, { error: "Bad transaction hash." });
