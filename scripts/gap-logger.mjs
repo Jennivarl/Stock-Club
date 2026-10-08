@@ -14,6 +14,8 @@ fs.mkdirSync(DATA, { recursive: true });
 const EVERY_MS = 15 * 60 * 1000;
 
 async function get(p, params) {
+  // Binance allows 5 requests/s per endpoint, shared with the bot. Go slow so the bot never gets a 429.
+  await new Promise((r) => setTimeout(r, 600));
   const pathWithQuery = "/build" + p + "?" + new URLSearchParams(params);
   const ts = new Date().toISOString();
   const sign = crypto.createHmac("sha256", SECRET).update(ts + "GET" + pathWithQuery).digest("base64");

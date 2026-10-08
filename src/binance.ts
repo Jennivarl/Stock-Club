@@ -8,7 +8,8 @@ const API_KEY = process.env.BINANCE_API_KEY ?? "";
 const API_SECRET = process.env.BINANCE_API_SECRET ?? "";
 
 // Signed GET. Signature = Base64(HMAC-SHA256(timestamp + method + pathWithQuery + body, secret)).
-export async function signedGet<T = any>(path: string, params: Record<string, string> = {}): Promise<T> {
+// On a rate limit (HTTP 429, code 42900) it waits for Retry-After and tries again, up to 3 times.
+export async function signedGet<T = any>(path: string, params: Record<string, string> = {}, attempt = 1): Promise<T> {
   if (!API_KEY || !API_SECRET) throw new Error("Missing BINANCE_API_KEY / BINANCE_API_SECRET in .env");
 
   const query = new URLSearchParams(params).toString();
@@ -19,6 +20,11 @@ export async function signedGet<T = any>(path: string, params: Record<string, st
   const res = await fetch(HOST + pathWithQuery, {
     headers: { "X-OC-APIKEY": API_KEY, "X-OC-TIMESTAMP": timestamp, "X-OC-SIGN": sign },
   });
+  if (res.status === 429 && attempt < 3) {
+    const waitS = Math.min(Number(res.headers.get("retry-after")) || 1, 10);
+    await new Promise((r) => setTimeout(r, waitS * 1000));
+    return signedGet<T>(path, params, attempt + 1);
+  }
   const text = await res.text();
   let json: any;
   try {
