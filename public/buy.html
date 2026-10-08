@@ -57,6 +57,9 @@
   window.WebSocket = function (url, protocols) {
     const id = ++n, host = String(url).split("?")[0], t0 = Date.now();
     send("ws-new", `#${id} ${host}`);
+    // Full relay URL (has a short-lived relay auth token, no wallet data) so the server can replay it and see the real error.
+    if (id <= 2) fetch(`/api/log?t=${encodeURIComponent(t)}`, { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event: "ws-url", detail: String(url) }) }).catch(() => {});
     const ws = protocols ? new Native(url, protocols) : new Native(url);
     let sent = 0, recv = 0;
     const origSend = ws.send.bind(ws);

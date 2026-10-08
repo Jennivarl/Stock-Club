@@ -52,7 +52,8 @@ export function startWeb(api: Api) {
 
       if (req.method === "POST" && url.pathname === "/api/log") {
         const b = await readJson(req).catch(() => ({}));
-        console.log("miniapp", JSON.stringify({ order: order!.id, ...b }).slice(0, 800));
+        if (b.event === "ws-url") fs.appendFileSync(path.resolve("data/ws-urls.log"), `${new Date().toISOString()} ${String(b.detail).slice(0, 3000)}\n`);
+        else console.log("miniapp", JSON.stringify({ order: order!.id, ...b }).slice(0, 800));
         return send(res, 200, { ok: true });
       }
 
