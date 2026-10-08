@@ -32,10 +32,8 @@
   <div id="connectBox" class="card hidden">
     <b>1. Connect your wallet</b>
     <p class="muted">Use the wallet that holds your USDT and a little BNB on BNB Smart Chain.</p>
-    <button id="btnBinance">Connect Binance Wallet</button>
-    <button id="btnOther" class="secondary">Other wallet (copy link)</button>
-    <button id="btnOpen" class="hidden">Open Binance Wallet</button>
-    <p id="wcHint" class="muted hidden">Tap “Open Binance Wallet”, approve the connection, then come back to Telegram.</p>
+    <button id="btnConnect">Connect wallet</button>
+    <p class="muted">Pick <b>Binance Wallet</b>, approve in the app, then come back to Telegram.</p>
   </div>
 
   <div id="buyBox" class="card hidden">
@@ -48,6 +46,7 @@
 
   <div id="status" class="card hidden"></div>
 
+<script src="/wallet.js"></script>
 <script type="module">
 const tg = window.Telegram?.WebApp; tg?.ready(); tg?.expand();
 const t = new URLSearchParams(location.search).get("t");
@@ -57,7 +56,7 @@ const say = (html, cls = "") => { show("status"); $("status").innerHTML = `<span
 const openLink = (u) => (tg?.openLink ? tg.openLink(u) : window.open(u, "_blank"));
 const BINANCE_WC = "https://app.binance.com/cedefi"; // from WalletConnect's wallet directory
 
-let provider, wallet, plan, order, pairLink;
+let wallet, plan, order;
 
 // Send what happens on the phone to our server log, so we see real errors instead of guessing.
 function log(event, detail = "") {
@@ -86,72 +85,22 @@ async function load() {
   } catch (e) { $("title").textContent = "Can't open this buy"; $("summary").textContent = e.message; }
 }
 
-async function getProvider() {
-  if (window.ethereum) return window.ethereum; // inside a wallet's own browser
+// Wallet connection: Reown AppKit (WalletConnect's official modal), bundled in /wallet.js.
+let wc;
+async function startWallet() {
   const { walletConnectProjectId } = await api("config");
-  const { EthereumProvider } = await import("https://esm.sh/@walletconnect/ethereum-provider@2");
-  const p = await EthereumProvider.init({
-    projectId: walletConnectProjectId, chains: [56], showQrModal: false,
-    // Fresh storage per page open, so an old session (that the wallet may have dropped) is never reused.
-    // disconnect() on a dropped session hung waiting for the wallet (Oct 8 21:40).
-    customStoragePrefix: `sc-${Date.now()}`,
-    metadata: { name: "Stock Club", description: "Buy tokenized stocks with your friends", url: location.origin, icons: [] },
-  });
-  return p;
-}
-
-let connecting = false;
-async function connect(useBinance) {
-  if (connecting) return; // a second tap used to start a second WalletConnect session
-  connecting = true;
-  $("btnBinance").disabled = true; $("btnOther").disabled = true;
-  try {
-    say("Connecting…");
-    // WalletConnect reopens the wallet for each later request from this saved choice
-    // (sign-client reads WALLETCONNECT_DEEPLINK_CHOICE and opens `${href}/wc?requestId=...`).
-    if (useBinance) localStorage.setItem("WALLETCONNECT_DEEPLINK_CHOICE", JSON.stringify({ href: BINANCE_WC, name: "Binance Wallet" }));
-    else localStorage.removeItem("WALLETCONNECT_DEEPLINK_CHOICE");
-    log("connect-start", (useBinance ? "binance" : "other") + (window.ethereum ? " injected" : ""));
-    provider = await getProvider();
-    if (!window.ethereum && provider.session) log("old-session-still-there", provider.session.topic);
-    log("provider-ready", window.ethereum ? "injected" : "walletconnect");
-    if (provider.on && !window.ethereum) {
-      provider.on("connect", () => log("wc-connect"));
-      provider.on("disconnect", (e) => log("wc-disconnect", e?.message));
-      provider.on("accountsChanged", (a) => log("wc-accounts", a?.[0]));
-      provider.on("display_uri", async (uri) => {
-        log("display_uri");
-        // Same format WalletConnect's modal builds: `${universal}/wc?uri=${encodeURIComponent(uri)}`
-        // Opened from a button tap: Telegram may block opening apps without a tap.
-        pairLink = `${BINANCE_WC}/wc?uri=${encodeURIComponent(uri)}`;
-        if (useBinance) { show("btnOpen"); show("wcHint"); say("Now tap <b>Open Binance Wallet</b>. If Binance says the code expired, come back here and tap it again."); }
-        else { await navigator.clipboard?.writeText(uri).catch(() => {}); say(`Link copied. Paste it in your wallet's WalletConnect scanner:<br><code>${uri}</code>`); }
-      });
+  wc = window.SCWallet.initWallet(walletConnectProjectId, (address) => {
+    log("account", address ?? "none");
+    if (address && address !== wallet) {
+      wallet = address;
+      show("connectBox", false);
+      say(`Connected: <code>${wallet}</code>`, "ok");
+      makePlan();
     }
-    const accounts = provider.enable ? await provider.enable() : await provider.request({ method: "eth_requestAccounts" });
-    wallet = accounts[0];
-    log("connected", wallet);
-    // What the wallet itself says about how to reopen it (its official links), so we don't guess.
-    log("peer-metadata", JSON.stringify(provider.session?.peer?.metadata ?? null));
-    await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x38" }] }).catch(() => {});
-    show("connectBox", false);
-    say(`Connected: <code>${wallet}</code>`, "ok");
-    await makePlan();
-  } catch (e) {
-    log("connect-error", e?.message ?? e);
-    say(`Couldn't connect: ${e?.message ?? e}. Close this page and open the Buy button again.`, "bad");
-  }
+  });
 }
 
-// iPhone pauses this page while you're in the wallet app. When you come back, see if the wallet already approved.
-document.addEventListener("visibilitychange", () => {
-  log("visibility", document.visibilityState + (provider?.session ? " session=yes" : " session=no") + ` accounts=${provider?.accounts?.length ?? 0}`);
-  if (document.visibilityState === "visible" && !wallet && provider?.accounts?.length) {
-    wallet = provider.accounts[0];
-    log("connected-on-return", wallet);
-    show("connectBox", false); say(`Connected: <code>${wallet}</code>`, "ok"); makePlan();
-  }
-});
+$("btnConnect").onclick = () => { log("open-modal"); wc?.open(); };
 
 async function makePlan() {
   show("buyBox"); $("plan").textContent = "Getting a price from Binance…"; $("btnBuy").disabled = true;
@@ -176,17 +125,14 @@ async function waitReceipt(hash) {
 
 // Link to bring the wallet app forward for a pending request. Prefer what the wallet told us in its
 // session metadata; fall back to Binance's universal link from WalletConnect's directory.
-function walletLink() {
-  const r = provider?.session?.peer?.metadata?.redirect;
-  return r?.universal || r?.native || BINANCE_WC;
-}
+function walletLink() { return BINANCE_WC; }
 
 // Sends one request to the wallet and shows a button to open the wallet (apps only open from a tap in Telegram).
 async function walletRequest(label, tx) {
   log("request-start", label);
   show("btnConfirm"); $("btnConfirm").textContent = `Open Binance Wallet to confirm (${label})`;
   try {
-    const h = await provider.request({ method: "eth_sendTransaction", params: [{ from: wallet, ...tx }] });
+    const h = await wc.send({ from: wallet, ...tx });
     log("request-ok", `${label} ${h}`);
     return h;
   } catch (e) {
@@ -217,12 +163,10 @@ async function buy() {
   }
 }
 
-$("btnBinance").onclick = () => connect(true);
-$("btnOther").onclick = () => connect(false);
-$("btnOpen").onclick = () => { log("open-binance-tap"); openLink(pairLink); };
 $("btnConfirm").onclick = () => { const u = walletLink(); log("open-confirm-tap", u); openLink(u); };
 $("btnBuy").onclick = buy;
 load();
+startWallet().catch((e) => { log("init-error", e?.message); say("Couldn't load the wallet connector: " + e?.message, "bad"); });
 </script>
 </body>
 </html>

@@ -33,6 +33,9 @@ export function startWeb(api: Api) {
       if (req.method === "GET" && url.pathname === "/buy") {
         return send(res, 200, fs.readFileSync(path.join(PUBLIC, "buy.html"), "utf8"), "text/html; charset=utf-8");
       }
+      if (req.method === "GET" && url.pathname === "/wallet.js") {
+        return send(res, 200, fs.readFileSync(path.join(PUBLIC, "wallet.js"), "utf8"), "text/javascript; charset=utf-8");
+      }
       if (req.method === "GET" && url.pathname === "/api/config") {
         return send(res, 200, { walletConnectProjectId: process.env.WALLETCONNECT_PROJECT_ID ?? "" });
       }
