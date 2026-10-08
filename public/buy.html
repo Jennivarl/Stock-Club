@@ -42,6 +42,7 @@
     <b>2. Buy</b>
     <div id="plan" class="muted"></div>
     <button id="btnBuy" disabled>Buy</button>
+    <button id="btnConfirm" class="hidden">Open Binance Wallet to confirm</button>
     <p class="muted">Your wallet will ask you to confirm. You keep your keys; Stock Club never holds your money.</p>
   </div>
 
@@ -119,13 +120,15 @@ async function connect(useBinance) {
         // Same format WalletConnect's modal builds: `${universal}/wc?uri=${encodeURIComponent(uri)}`
         // Opened from a button tap: Telegram may block opening apps without a tap.
         pairLink = `${BINANCE_WC}/wc?uri=${encodeURIComponent(uri)}`;
-        if (useBinance) { show("btnOpen"); show("wcHint"); say("Now tap <b>Open Binance Wallet</b>."); }
+        if (useBinance) { show("btnOpen"); show("wcHint"); say("Now tap <b>Open Binance Wallet</b>. If Binance says the code expired, come back here and tap it again."); }
         else { await navigator.clipboard?.writeText(uri).catch(() => {}); say(`Link copied. Paste it in your wallet's WalletConnect scanner:<br><code>${uri}</code>`); }
       });
     }
     const accounts = provider.enable ? await provider.enable() : await provider.request({ method: "eth_requestAccounts" });
     wallet = accounts[0];
     log("connected", wallet);
+    // What the wallet itself says about how to reopen it (its official links), so we don't guess.
+    log("peer-metadata", JSON.stringify(provider.session?.peer?.metadata ?? null));
     await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x38" }] }).catch(() => {});
     show("connectBox", false);
     say(`Connected: <code>${wallet}</code>`, "ok");
@@ -167,18 +170,39 @@ async function waitReceipt(hash) {
   throw new Error("Approval not confirmed after 3 minutes");
 }
 
+// Link to bring the wallet app forward for a pending request. Prefer what the wallet told us in its
+// session metadata; fall back to Binance's universal link from WalletConnect's directory.
+function walletLink() {
+  const r = provider?.session?.peer?.metadata?.redirect;
+  return r?.universal || r?.native || BINANCE_WC;
+}
+
+// Sends one request to the wallet and shows a button to open the wallet (apps only open from a tap in Telegram).
+async function walletRequest(label, tx) {
+  log("request-start", label);
+  show("btnConfirm"); $("btnConfirm").textContent = `Open Binance Wallet to confirm (${label})`;
+  try {
+    const h = await provider.request({ method: "eth_sendTransaction", params: [{ from: wallet, ...tx }] });
+    log("request-ok", `${label} ${h}`);
+    return h;
+  } catch (e) {
+    log("request-error", `${label} code=${e?.code} msg=${e?.message} data=${JSON.stringify(e?.data ?? null)}`);
+    throw e;
+  } finally { show("btnConfirm", false); }
+}
+
 async function buy() {
   $("btnBuy").disabled = true;
   try {
     if (plan.approve) {
-      say("Step 1 of 2: allow USDT in your wallet…");
-      const h = await provider.request({ method: "eth_sendTransaction", params: [{ from: wallet, ...plan.approve }] });
+      say("Step 1 of 2: tap <b>Open Binance Wallet to confirm</b> and allow USDT.");
+      const h = await walletRequest("allow USDT", plan.approve);
       say("Waiting for the approval to confirm…");
       const r = await waitReceipt(h);
       if (r.status !== "0x1") throw new Error("The approval failed.");
     }
-    say(plan.approve ? "Step 2 of 2: confirm the buy in your wallet…" : "Confirm the buy in your wallet…");
-    const hash = await provider.request({ method: "eth_sendTransaction", params: [{ from: wallet, ...plan.tx }] });
+    say(`${plan.approve ? "Step 2 of 2: " : ""}tap <b>Open Binance Wallet to confirm</b> and approve the buy.`);
+    const hash = await walletRequest("buy", plan.tx);
     await api("sent", { wallet, txHash: hash });
     say(`✅ Sent! I'll post the result in your club chat when it confirms.<br><a href="https://bscscan.com/tx/${hash}">View on BscScan</a>`, "ok");
     show("buyBox", false);
@@ -192,6 +216,7 @@ async function buy() {
 $("btnBinance").onclick = () => connect(true);
 $("btnOther").onclick = () => connect(false);
 $("btnOpen").onclick = () => { log("open-binance-tap"); openLink(pairLink); };
+$("btnConfirm").onclick = () => { const u = walletLink(); log("open-confirm-tap", u); openLink(u); };
 $("btnBuy").onclick = buy;
 load();
 </script>
