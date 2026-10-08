@@ -55,10 +55,14 @@
   const Native = window.WebSocket;
   let n = 0;
   window.WebSocket = function (url, protocols) {
+    // Some ISPs' DNS refuses walletconnect.org (seen on varl's home network: "Query refused"), so the
+    // phone can't reach the relay. Send it through our own server instead (Caddy /wc-relay -> relay.walletconnect.org).
+    // The relay token still says relay.walletconnect.org, which the relay requires ("Invalid audience" otherwise).
+    url = String(url).replace(/^wss:\/\/relay\.walletconnect\.(org|com)\/?/, `wss://${location.host}/wc-relay/`);
     const id = ++n, host = String(url).split("?")[0], t0 = Date.now();
     send("ws-new", `#${id} ${host}`);
     // Full relay URL (has a short-lived relay auth token, no wallet data) so the server can replay it and see the real error.
-    if (id <= 2) fetch(`/api/log?t=${encodeURIComponent(t)}`, { method: "POST", headers: { "Content-Type": "application/json" },
+    if (false) fetch(`/api/log?t=${encodeURIComponent(t)}`, { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ event: "ws-url", detail: String(url) }) }).catch(() => {});
     const ws = protocols ? new Native(url, protocols) : new Native(url);
     let sent = 0, recv = 0;

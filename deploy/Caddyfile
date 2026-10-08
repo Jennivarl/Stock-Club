@@ -1,0 +1,12 @@
+164-90-183-99.sslip.io {
+	# WalletConnect relay pass-through: some ISPs block DNS for walletconnect.org, so phones reach it via us.
+	handle_path /wc-relay* {
+		reverse_proxy https://relay.walletconnect.org {
+			header_up Host relay.walletconnect.org
+		}
+	}
+	handle {
+		encode gzip
+		reverse_proxy 127.0.0.1:8080
+	}
+}
