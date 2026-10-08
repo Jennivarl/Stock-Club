@@ -34,7 +34,8 @@ const HELP = [
   "",
   "<b>In a private chat with me:</b>",
   "/autopilot - connect your Binance Agentic Wallet so I buy for you when a vote passes",
-  "/autopilot off - stop buying for you",
+  "/autopilot off - pause (you get Buy buttons instead)",
+  "/autopilot logout - pause and sign out of your Agentic Wallet",
 ].join("\n");
 
 function rulesText(r: Rules): string {
@@ -80,9 +81,14 @@ async function autopilotCommand(ctx: Context, arg: string) {
   if (!autopilotAvailable()) return ctx.reply("Autopilot isn't available on this server right now.");
 
   if (arg === "off") {
+    // Pause only: the Binance login stays, so /autopilot turns it back on without a new approval.
+    setAutopilot(uid, false);
+    return ctx.reply("⏸ Autopilot is paused. I won't buy for you; you'll get a Buy button instead.\nTurn it back on: /autopilot\nFully log out of your Agentic Wallet: /autopilot logout");
+  }
+  if (arg === "logout") {
     setAutopilot(uid, false);
     await signout(uid);
-    return ctx.reply("🛑 Autopilot is off and I signed out of your Agentic Wallet. I won't buy for you anymore.");
+    return ctx.reply("🛑 Autopilot is off and I signed out of your Agentic Wallet. To use it again, /autopilot and approve a new login.");
   }
 
   if (await isConnected(uid)) {
@@ -99,7 +105,7 @@ async function autopilotCommand(ctx: Context, arg: string) {
         `Login ends: ${s.inactiveSignOutTime ? new Date(s.inactiveSignOutTime).toUTCString() : "?"} if unused`,
         "",
         "Top up: send USDT + a little BNB on <b>BNB Smart Chain (BEP20)</b> to the address above. Not opBNB.",
-        "Turn off: /autopilot off",
+        "Pause: /autopilot off · Sign out: /autopilot logout",
       ].join("\n"),
       { parse_mode: "HTML" },
     );
