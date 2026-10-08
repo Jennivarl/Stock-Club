@@ -84,6 +84,9 @@ const orderCols = (db.prepare("PRAGMA table_info(orders)").all() as { name: stri
 if (!orderCols.includes("returned_order_id")) db.exec("ALTER TABLE orders ADD COLUMN returned_order_id TEXT");
 if (!orderCols.includes("real_order_id")) db.exec("ALTER TABLE orders ADD COLUMN real_order_id TEXT");
 if (!orderCols.includes("qty")) db.exec("ALTER TABLE orders ADD COLUMN qty TEXT");
+// Secret in the Buy-page link for "tap to buy" orders.
+if (!orderCols.includes("tap_token")) db.exec("ALTER TABLE orders ADD COLUMN tap_token TEXT");
+if (!orderCols.includes("wallet_address")) db.exec("ALTER TABLE orders ADD COLUMN wallet_address TEXT");
 
 export type Club = { id: number; telegram_chat_id: number; name: string; created_by: number };
 export type Rules = {
@@ -169,6 +172,35 @@ export function clubsOf(telegramUserId: number): Club[] {
 export function createOrder(proposalId: number, memberId: number, mode: "tap" | "autopilot", amount: number): number {
   const r = db.prepare("INSERT INTO orders (proposal_id, member_id, mode, amount_usd) VALUES (?, ?, ?, ?)").run(proposalId, memberId, mode, amount);
   return Number(r.lastInsertRowid);
+}
+
+export type TapOrder = {
+  id: number; proposal_id: number; member_id: number; amount_usd: number; status: string; tx_hash: string | null;
+  tap_token: string; wallet_address: string | null; ticker: string; token_address: string; platform: string;
+  member_name: string; telegram_user_id: number; telegram_chat_id: number; created_at: string;
+};
+
+export function createTapOrder(proposalId: number, memberId: number, amount: number, token: string): number {
+  const r = db.prepare("INSERT INTO orders (proposal_id, member_id, mode, amount_usd, tap_token) VALUES (?, ?, 'tap', ?, ?)")
+    .run(proposalId, memberId, amount, token);
+  return Number(r.lastInsertRowid);
+}
+
+export function getTapOrder(token: string): TapOrder | undefined {
+  return db.prepare(`
+    SELECT o.*, p.ticker, p.token_address, p.platform, m.name AS member_name, m.telegram_user_id, c.telegram_chat_id
+    FROM orders o JOIN proposals p ON p.id = o.proposal_id JOIN members m ON m.id = o.member_id JOIN clubs c ON c.id = p.club_id
+    WHERE o.tap_token = ? AND o.mode = 'tap'`).get(token) as TapOrder | undefined;
+}
+
+export function updateTapOrder(id: number, f: { status: string; txHash?: string; wallet?: string; qty?: string; error?: string }) {
+  db.prepare("UPDATE orders SET status = ?, tx_hash = COALESCE(?, tx_hash), wallet_address = COALESCE(?, wallet_address), qty = COALESCE(?, qty), error = ? WHERE id = ?")
+    .run(f.status, f.txHash ?? null, f.wallet ?? null, f.qty ?? null, f.error ?? null, id);
+}
+
+// Unused Buy links stop reserving the member's weekly budget after 2 hours.
+export function expireOldTapOrders() {
+  db.prepare("UPDATE orders SET status = 'expired' WHERE mode = 'tap' AND status = 'pending' AND created_at < datetime('now', '-2 hours')").run();
 }
 
 export function finishOrder(

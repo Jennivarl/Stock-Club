@@ -1,6 +1,7 @@
 // Propose -> vote -> pass/fail. Every check gives a plain-words reason when it says no.
+import crypto from "node:crypto";
 import type { Api } from "grammy";
-import { createOrder, db, finishOrder, getMembers, getRules, spentThisWeek, type Club, type Member, type Proposal, type Rules } from "./db.js";
+import { createOrder, createTapOrder, db, finishOrder, getMembers, getRules, spentThisWeek, type Club, type Member, type Proposal, type Rules } from "./db.js";
 import { priceCard, type Card } from "./card.js";
 import { ISSUER_NAME, type Quote } from "./rwa.js";
 import { autopilotAvailable, buy } from "./autopilot.js";
@@ -151,8 +152,8 @@ export async function closeProposal(api: Api, p: Proposal, chatId: number): Prom
   await runBuys(api, chatId, p, t.yes, best, rules);
 }
 
-// Ondo quotes failed under $5 in our tests ("From token value greater than 5 USD").
 const ONDO_MIN_USD = 5;
+export const WEB_URL = process.env.WEB_URL ?? "https://164-90-183-99.sslip.io";
 
 async function runBuys(api: Api, chatId: number, p: Proposal, yes: Member[], best: Quote, rules: Rules) {
   const lines: string[] = [];
@@ -162,18 +163,35 @@ async function runBuys(api: Api, chatId: number, p: Proposal, yes: Member[], bes
   }
   for (const m of yes) {
     const name = esc(m.name);
-    if (!m.autopilot_on || !autopilotAvailable()) {
-      lines.push(`👆 ${name}: no Autopilot yet. Turn it on with /autopilot (private chat with me).`);
-      continue;
-    }
     // Check the club's rules again for each member right before spending.
     const left = rules.max_per_week - spentThisWeek(m.id);
     if (p.amount_usd > left) {
       lines.push(`⛔ ${name}: skipped, over the $${rules.max_per_week}/week limit ($${Math.max(0, left).toFixed(2)} left).`);
       continue;
     }
-    if (best.platformId === "ondo" && p.amount_usd <= ONDO_MIN_USD) {
-      lines.push(`⛔ ${name}: skipped, Ondo needs more than $${ONDO_MIN_USD} per trade.`);
+    // Trading API said "Minimum order amount is 5 USD" (code 40375) for Ondo.
+    if (best.platformId === "ondo" && p.amount_usd < ONDO_MIN_USD) {
+      lines.push(`⛔ ${name}: skipped, Ondo needs at least $${ONDO_MIN_USD} per trade.`);
+      continue;
+    }
+    if (!m.autopilot_on || !autopilotAvailable()) {
+      // Tap to buy: a private Buy button that opens the Mini App; the member signs in their own wallet.
+      const tapToken = crypto.randomBytes(18).toString("base64url");
+      createTapOrder(p.id, m.id, p.amount_usd, tapToken);
+      const url = `${WEB_URL}/buy?t=${tapToken}`;
+      const dm = await api
+        .sendMessage(m.telegram_user_id, `🗳 Your club voted yes: buy <b>$${p.amount_usd} of ${esc(p.ticker)}</b>.\nTap the button to buy in your own wallet. The link works for 2 hours.`, {
+          parse_mode: "HTML",
+          reply_markup: { inline_keyboard: [[{ text: `Buy $${p.amount_usd} ${p.ticker}`, web_app: { url } }]] },
+        })
+        .then(() => true)
+        .catch(() => false); // fails if they never opened a private chat with the bot
+      const me = await api.getMe();
+      lines.push(
+        dm
+          ? `👆 ${name}: I sent you a Buy button in our private chat.`
+          : `👆 ${name}: open t.me/${me.username}?start=buy_${tapToken} to get your Buy button.`,
+      );
       continue;
     }
     const orderId = createOrder(p.id, m.id, "autopilot", p.amount_usd);

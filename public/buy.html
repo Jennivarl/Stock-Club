@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Stock Club · Buy</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root { --bg: #ffffff; --fg: #111; --muted: #666; --card: #f3f4f6; --accent: #f0b90b; --ok: #16a34a; --bad: #dc2626; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #17181c; --fg: #eee; --muted: #9aa0a6; --card: #23252b; } }
+  body { margin: 0; padding: 16px; font: 16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+         background: var(--tg-theme-bg-color, var(--bg)); color: var(--tg-theme-text-color, var(--fg)); }
+  h1 { font-size: 22px; margin: 4px 0 12px; }
+  .card { background: var(--tg-theme-secondary-bg-color, var(--card)); border-radius: 14px; padding: 14px; margin: 12px 0; }
+  .muted { color: var(--tg-theme-hint-color, var(--muted)); font-size: 14px; }
+  button { width: 100%; padding: 14px; margin: 6px 0; border: 0; border-radius: 12px; font-size: 16px; font-weight: 600;
+           background: var(--accent); color: #111; cursor: pointer; }
+  button.secondary { background: transparent; color: inherit; border: 1px solid var(--tg-theme-hint-color, #999); }
+  button:disabled { opacity: .5; }
+  .step { display: flex; gap: 8px; align-items: baseline; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); }
+  code { word-break: break-all; font-size: 13px; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+  <h1 id="title">Loading…</h1>
+  <div class="card">
+    <div id="summary" class="muted">Getting your order…</div>
+  </div>
+
+  <div id="connectBox" class="card hidden">
+    <b>1. Connect your wallet</b>
+    <p class="muted">Use the wallet that holds your USDT and a little BNB on BNB Smart Chain.</p>
+    <button id="btnBinance">Connect Binance Wallet</button>
+    <button id="btnOther" class="secondary">Other wallet (copy link)</button>
+    <p id="wcHint" class="muted hidden">After you approve in your wallet, come back to Telegram.</p>
+  </div>
+
+  <div id="buyBox" class="card hidden">
+    <b>2. Buy</b>
+    <div id="plan" class="muted"></div>
+    <button id="btnBuy" disabled>Buy</button>
+    <p class="muted">Your wallet will ask you to confirm. You keep your keys; Stock Club never holds your money.</p>
+  </div>
+
+  <div id="status" class="card hidden"></div>
+
+<script type="module">
+const tg = window.Telegram?.WebApp; tg?.ready(); tg?.expand();
+const t = new URLSearchParams(location.search).get("t");
+const $ = (id) => document.getElementById(id);
+const show = (id, on = true) => $(id).classList.toggle("hidden", !on);
+const say = (html, cls = "") => { show("status"); $("status").innerHTML = `<span class="${cls}">${html}</span>`; };
+const openLink = (u) => (tg?.openLink ? tg.openLink(u) : window.open(u, "_blank"));
+const BINANCE_WC = "https://app.binance.com/cedefi"; // from WalletConnect's wallet directory
+
+let provider, wallet, plan, order;
+
+async function api(path, body) {
+  const r = await fetch(`/api/${path}?t=${encodeURIComponent(t)}`, body
+    ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {});
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || `Error ${r.status}`);
+  return j;
+}
+
+async function load() {
+  try {
+    order = await api("order");
+    $("title").textContent = `Buy $${order.amount} of ${order.ticker}`;
+    $("summary").innerHTML = `Your club voted yes. This buys <b>$${order.amount}</b> of <b>${order.ticker}</b>
+      (${order.platform === "bstock" ? "bStocks" : "Ondo"}) with USDT, in your own wallet.`;
+    if (order.status === "pending") show("connectBox");
+    else say(`This buy is already <b>${order.status}</b>.` + (order.txHash ? ` <a href="https://bscscan.com/tx/${order.txHash}">BscScan</a>` : ""));
+  } catch (e) { $("title").textContent = "Can't open this buy"; $("summary").textContent = e.message; }
+}
+
+async function getProvider() {
+  if (window.ethereum) return window.ethereum; // inside a wallet's own browser
+  const { walletConnectProjectId } = await api("config");
+  const { EthereumProvider } = await import("https://esm.sh/@walletconnect/ethereum-provider@2");
+  const p = await EthereumProvider.init({
+    projectId: walletConnectProjectId, chains: [56], showQrModal: false,
+    metadata: { name: "Stock Club", description: "Buy tokenized stocks with your friends", url: location.origin, icons: [] },
+  });
+  return p;
+}
+
+async function connect(useBinance) {
+  try {
+    say("Connecting…");
+    // WalletConnect reopens the wallet for each later request from this saved choice
+    // (sign-client reads WALLETCONNECT_DEEPLINK_CHOICE and opens `${href}/wc?requestId=...`).
+    if (useBinance) localStorage.setItem("WALLETCONNECT_DEEPLINK_CHOICE", JSON.stringify({ href: BINANCE_WC, name: "Binance Wallet" }));
+    else localStorage.removeItem("WALLETCONNECT_DEEPLINK_CHOICE");
+    provider = await getProvider();
+    if (provider.on && !window.ethereum) {
+      provider.on("display_uri", async (uri) => {
+        // Same format WalletConnect's modal builds: `${universal}/wc?uri=${encodeURIComponent(uri)}`
+        if (useBinance) openLink(`${BINANCE_WC}/wc?uri=${encodeURIComponent(uri)}`);
+        else { await navigator.clipboard?.writeText(uri).catch(() => {}); say(`Link copied. Paste it in your wallet's WalletConnect scanner:<br><code>${uri}</code>`); }
+        show("wcHint");
+      });
+    }
+    const accounts = provider.enable ? await provider.enable() : await provider.request({ method: "eth_requestAccounts" });
+    wallet = accounts[0];
+    await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x38" }] }).catch(() => {});
+    show("connectBox", false);
+    say(`Connected: <code>${wallet}</code>`, "ok");
+    await makePlan();
+  } catch (e) { say(`Couldn't connect: ${e.message}`, "bad"); }
+}
+
+async function makePlan() {
+  show("buyBox"); $("plan").textContent = "Getting a price from Binance…"; $("btnBuy").disabled = true;
+  try {
+    plan = await api("plan", { wallet });
+    $("plan").innerHTML = `You get about <b>${plan.expectedQty.toFixed(6)} ${order.ticker}</b> (at least ${plan.minQty.toFixed(6)}).<br>
+      Wallet: ${plan.balances.usdt.toFixed(2)} USDT, ${plan.balances.bnb.toFixed(5)} BNB.<br>
+      ${plan.approve ? "Your wallet will ask <b>twice</b>: first to allow this USDT amount, then to buy." : "Your wallet will ask once to confirm."}`;
+    $("btnBuy").disabled = false;
+  } catch (e) { $("plan").innerHTML = `<span class="bad">${e.message}</span>`; }
+}
+
+// Our server checks the chain (we don't rely on the wallet connection for reads).
+async function waitReceipt(hash) {
+  for (let i = 0; i < 60; i++) {
+    const r = await fetch(`/api/receipt?t=${encodeURIComponent(t)}&h=${hash}`).then((x) => x.json()).catch(() => null);
+    if (r?.status) return r;
+    await new Promise((res) => setTimeout(res, 3000));
+  }
+  throw new Error("Approval not confirmed after 3 minutes");
+}
+
+async function buy() {
+  $("btnBuy").disabled = true;
+  try {
+    if (plan.approve) {
+      say("Step 1 of 2: allow USDT in your wallet…");
+      const h = await provider.request({ method: "eth_sendTransaction", params: [{ from: wallet, ...plan.approve }] });
+      say("Waiting for the approval to confirm…");
+      const r = await waitReceipt(h);
+      if (r.status !== "0x1") throw new Error("The approval failed.");
+    }
+    say(plan.approve ? "Step 2 of 2: confirm the buy in your wallet…" : "Confirm the buy in your wallet…");
+    const hash = await provider.request({ method: "eth_sendTransaction", params: [{ from: wallet, ...plan.tx }] });
+    await api("sent", { wallet, txHash: hash });
+    say(`✅ Sent! I'll post the result in your club chat when it confirms.<br><a href="https://bscscan.com/tx/${hash}">View on BscScan</a>`, "ok");
+    show("buyBox", false);
+    tg?.HapticFeedback?.notificationOccurred("success");
+  } catch (e) {
+    say(`❌ ${e.message}. Nothing was bought. You can try again.`, "bad");
+    await makePlan(); // prices move; get a fresh one
+  }
+}
+
+$("btnBinance").onclick = () => connect(true);
+$("btnOther").onclick = () => connect(false);
+$("btnBuy").onclick = buy;
+load();
+</script>
+</body>
+</html>

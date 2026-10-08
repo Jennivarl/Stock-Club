@@ -1,13 +1,15 @@
 import "dotenv/config";
 import { Bot, type Context } from "grammy";
 import {
-  addMember, clubsOf, createClub, db, getClub, getMember, getMembers, getRules, RULE_KEYS, setAutopilot, setPaused, setRule, type Rules,
+  addMember, clubsOf, createClub, db, expireOldTapOrders, getClub, getTapOrder, getMember, getMembers, getRules, RULE_KEYS, setAutopilot, setPaused, setRule, type Rules,
 } from "./db.js";
 import { priceCard } from "./card.js";
 import { autopilotAvailable, isConnected, signout, startSignin, waitForSignin, walletInfo } from "./autopilot.js";
 import {
   attachPoll, checkMarket, checkRules, closeProposal, createProposal, dueProposals, getOpenProposalForTicker, proposalIntro, recordVote, tally,
+  WEB_URL,
 } from "./proposals.js";
+import { startWeb } from "./web.js";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) throw new Error("Missing TELEGRAM_BOT_TOKEN in .env");
@@ -52,6 +54,16 @@ function rulesText(r: Rules): string {
 bot.command(["start", "help"], async (ctx) => {
   // Deep link from a group: t.me/<bot>?start=autopilot
   if (ctx.chat?.type === "private" && ctx.match === "autopilot") return autopilotCommand(ctx, "");
+  // Deep link to a Buy button: t.me/<bot>?start=buy_<token> (used when we couldn't DM first)
+  if (ctx.chat?.type === "private" && ctx.match.startsWith("buy_")) {
+    const o = getTapOrder(ctx.match.slice(4));
+    if (!o || o.telegram_user_id !== ctx.from?.id) return ctx.reply("This Buy link isn't for you or has expired.");
+    if (o.status !== "pending") return ctx.reply(`This buy is already ${o.status}.`);
+    return ctx.reply(`Buy <b>$${o.amount_usd} of ${esc(o.ticker)}</b> in your own wallet:`, {
+      parse_mode: "HTML",
+      reply_markup: { inline_keyboard: [[{ text: `Buy $${o.amount_usd} ${o.ticker}`, web_app: { url: `${WEB_URL}/buy?t=${ctx.match.slice(4)}` } }]] },
+    });
+  }
   await ctx.reply(HELP, { parse_mode: "HTML" });
 });
 
@@ -261,6 +273,7 @@ bot.command("resume", async (ctx) => {
 
 // Close votes when their time is up. Runs every 20 s; also catches votes that ended while the bot was down.
 async function sweep() {
+  expireOldTapOrders();
   for (const p of dueProposals()) {
     try {
       await closeProposal(bot.api, p, p.telegram_chat_id);
@@ -285,5 +298,6 @@ await bot.api.setMyCommands([
   { command: "autopilot", description: "let me buy for you (private chat)" },
   { command: "help", description: "how Stock Club works" },
 ]);
+startWeb(bot.api);
 console.log("Stock Club bot running");
 bot.start({ allowed_updates: ["message", "poll_answer"] });
