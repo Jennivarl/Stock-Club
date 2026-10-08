@@ -96,7 +96,11 @@ async function getProvider() {
   return p;
 }
 
+let connecting = false;
 async function connect(useBinance) {
+  if (connecting) return; // a second tap used to start a second WalletConnect session
+  connecting = true;
+  $("btnBinance").disabled = true; $("btnOther").disabled = true;
   try {
     say("Connecting…");
     // WalletConnect reopens the wallet for each later request from this saved choice
@@ -107,6 +111,9 @@ async function connect(useBinance) {
     provider = await getProvider();
     log("provider-ready", window.ethereum ? "injected" : "walletconnect");
     if (provider.on && !window.ethereum) {
+      provider.on("connect", () => log("wc-connect"));
+      provider.on("disconnect", (e) => log("wc-disconnect", e?.message));
+      provider.on("accountsChanged", (a) => log("wc-accounts", a?.[0]));
       provider.on("display_uri", async (uri) => {
         log("display_uri");
         // Same format WalletConnect's modal builds: `${universal}/wc?uri=${encodeURIComponent(uri)}`
@@ -123,8 +130,21 @@ async function connect(useBinance) {
     show("connectBox", false);
     say(`Connected: <code>${wallet}</code>`, "ok");
     await makePlan();
-  } catch (e) { log("connect-error", e?.message ?? e); say(`Couldn't connect: ${e?.message ?? e}`, "bad"); }
+  } catch (e) {
+    log("connect-error", e?.message ?? e);
+    say(`Couldn't connect: ${e?.message ?? e}. Close this page and open the Buy button again.`, "bad");
+  }
 }
+
+// iPhone pauses this page while you're in the wallet app. When you come back, see if the wallet already approved.
+document.addEventListener("visibilitychange", () => {
+  log("visibility", document.visibilityState + (provider?.session ? " session=yes" : " session=no") + ` accounts=${provider?.accounts?.length ?? 0}`);
+  if (document.visibilityState === "visible" && !wallet && provider?.accounts?.length) {
+    wallet = provider.accounts[0];
+    log("connected-on-return", wallet);
+    show("connectBox", false); say(`Connected: <code>${wallet}</code>`, "ok"); makePlan();
+  }
+});
 
 async function makePlan() {
   show("buyBox"); $("plan").textContent = "Getting a price from Binance…"; $("btnBuy").disabled = true;
