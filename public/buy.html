@@ -92,6 +92,9 @@ async function getProvider() {
   const { EthereumProvider } = await import("https://esm.sh/@walletconnect/ethereum-provider@2");
   const p = await EthereumProvider.init({
     projectId: walletConnectProjectId, chains: [56], showQrModal: false,
+    // Fresh storage per page open, so an old session (that the wallet may have dropped) is never reused.
+    // disconnect() on a dropped session hung waiting for the wallet (Oct 8 21:40).
+    customStoragePrefix: `sc-${Date.now()}`,
     metadata: { name: "Stock Club", description: "Buy tokenized stocks with your friends", url: location.origin, icons: [] },
   });
   return p;
@@ -110,13 +113,7 @@ async function connect(useBinance) {
     else localStorage.removeItem("WALLETCONNECT_DEEPLINK_CHOICE");
     log("connect-start", (useBinance ? "binance" : "other") + (window.ethereum ? " injected" : ""));
     provider = await getProvider();
-    // Start a fresh WalletConnect session each time: a session saved hours ago may be gone on the wallet side
-    // (Oct 8: reused session -> request never reached the wallet). Clearing localStorage didn't remove it,
-    // so end it with the provider's own disconnect().
-    if (!window.ethereum && provider.session) {
-      log("old-session", provider.session.topic);
-      await provider.disconnect().catch((e) => log("disconnect-error", e?.message));
-    }
+    if (!window.ethereum && provider.session) log("old-session-still-there", provider.session.topic);
     log("provider-ready", window.ethereum ? "injected" : "walletconnect");
     if (provider.on && !window.ethereum) {
       provider.on("connect", () => log("wc-connect"));
