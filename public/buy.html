@@ -46,6 +46,32 @@
 
   <div id="status" class="card hidden"></div>
 
+<script>
+// Debug: record what happens to WalletConnect's relay connection on the phone (open / error / close codes).
+(() => {
+  const t = new URLSearchParams(location.search).get("t");
+  const send = (event, detail) => fetch(`/api/log?t=${encodeURIComponent(t)}`, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ event, detail: String(detail).slice(0, 400) }) }).catch(() => {});
+  const Native = window.WebSocket;
+  let n = 0;
+  window.WebSocket = function (url, protocols) {
+    const id = ++n, host = String(url).split("?")[0], t0 = Date.now();
+    send("ws-new", `#${id} ${host}`);
+    const ws = protocols ? new Native(url, protocols) : new Native(url);
+    let sent = 0, recv = 0;
+    const origSend = ws.send.bind(ws);
+    ws.send = (d) => { sent++; return origSend(d); };
+    ws.addEventListener("open", () => send("ws-open", `#${id} after ${Date.now() - t0}ms`));
+    ws.addEventListener("message", () => { recv++; });
+    ws.addEventListener("error", () => send("ws-error", `#${id} after ${Date.now() - t0}ms state=${ws.readyState}`));
+    ws.addEventListener("close", (e) => send("ws-close", `#${id} code=${e.code} reason=${e.reason || "-"} clean=${e.wasClean} sent=${sent} recv=${recv} after ${Date.now() - t0}ms`));
+    return ws;
+  };
+  window.WebSocket.prototype = Native.prototype;
+  Object.assign(window.WebSocket, { CONNECTING: 0, OPEN: 1, CLOSING: 2, CLOSED: 3 });
+  send("page-load", navigator.userAgent);
+})();
+</script>
 <script src="/wallet.js"></script>
 <script type="module">
 const tg = window.Telegram?.WebApp; tg?.ready(); tg?.expand();
