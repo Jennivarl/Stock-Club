@@ -25,6 +25,7 @@ const HELP = [
   "",
   "<b>In a group:</b>",
   "/club start [name] - start a club in this group",
+  "/club name <new name> - rename the club (creator only)",
   "/join - join the club",
   "/members - who's in",
   "/rules - show club rules",
@@ -255,7 +256,16 @@ bot.command("autopilot", (ctx) => autopilotCommand(ctx, ctx.match.trim().toLower
 
 bot.command("club", async (ctx) => {
   const [sub, ...rest] = ctx.match.trim().split(/\s+/);
-  if (sub !== "start") return ctx.reply("Use: /club start [name]");
+  if (sub === "name" || sub === "rename") {
+    const club = isGroup(ctx) ? getClub(ctx.chat!.id) : undefined;
+    if (!club) return ctx.reply("No club here yet. Start one with /club start");
+    if (ctx.from!.id !== club.created_by) return ctx.reply("Only the club creator can rename it.");
+    const name = rest.join(" ").trim().slice(0, 60);
+    if (!name) return ctx.reply("Use: /club name Wall Street Weekenders");
+    db.prepare("UPDATE clubs SET name = ? WHERE id = ?").run(name, club.id);
+    return ctx.reply(`✏️ The club is now called <b>${esc(name)}</b>.`, { parse_mode: "HTML" });
+  }
+  if (sub !== "start") return ctx.reply("Use: /club start [name]  ·  /club name <new name>");
   if (!isGroup(ctx)) return ctx.reply("Add me to a group first, then run /club start there.");
   const existing = getClub(ctx.chat.id);
   if (existing) return ctx.reply(`This group already has a club: <b>${esc(existing.name)}</b>. Use /join.`, { parse_mode: "HTML" });
