@@ -218,7 +218,14 @@ async function runBuys(api: Api, chatId: number, p: Proposal, yes: Member[], bes
     }
   }
   const bought = lines.filter((l) => l.startsWith("✅")).length;
-  await api.sendMessage(chatId, `🧾 <b>Results: ${bought} of ${yes.length} bought</b>\n${lines.join("\n")}`, {
+  const tapping = lines.filter((l) => l.startsWith("👆")).length;
+  // Tap-to-buy members haven't had a chance to buy yet, so don't count them as "not bought".
+  const head = [
+    bought ? `${bought} bought` : "",
+    tapping ? `waiting for ${tapping} ${tapping === 1 ? "member" : "members"} to tap Buy` : "",
+    yes.length - bought - tapping ? `${yes.length - bought - tapping} not bought` : "",
+  ].filter(Boolean).join(", ");
+  await api.sendMessage(chatId, `🧾 <b>${head.charAt(0).toUpperCase() + head.slice(1)}</b>\n${lines.join("\n")}`, {
     parse_mode: "HTML",
     link_preview_options: { is_disabled: true },
   });
