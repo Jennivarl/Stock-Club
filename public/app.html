@@ -41,6 +41,9 @@
       linear-gradient(135deg, rgba(240,185,11,.55), rgba(240,185,11,.05) 40%, rgba(255,255,255,.06) 70%, rgba(240,185,11,.35)) border-box; }
   .row { display: flex; align-items: center; gap: 10px; } .between { justify-content: space-between; } .col { display: flex; flex-direction: column; }
   .ic { width: 20px; height: 20px; flex: none; fill: currentColor; vertical-align: middle; }
+  .addr { display: flex; align-items: center; gap: 6px; margin-top: 4px; line-height: 1; }
+  .addr .ic { width: 16px; height: 16px; margin: 0; vertical-align: 0; }
+  .addr code { line-height: 1; }
   /* small icons sitting inside a line of text: center them on the text, with a little space after */
   td > .ic, .muted > .ic, span > .ic.sm, small > .ic { width: 1.15em; height: 1.15em; vertical-align: -0.22em; margin-right: 5px; }
   .ic.sm { width: 16px; height: 16px; } .ic.lg { width: 24px; height: 24px; }
@@ -601,7 +604,7 @@ async function loadPortfolio() {
       <div class="card hero">
         <div class="row between">
           <div><div class="muted" style="font-weight:700">Total value</div><div class="bigprice num">$${fmt(p.total)}</div>
-            <div class="muted" style="margin-top:2px">${icon("wallet", "sm")} <code>${w.slice(0, 6)}…${w.slice(-4)}</code> · BNB Chain</div></div>
+            <div class="muted addr">${icon("wallet", "sm")}<code>${w.slice(0, 6)}…${w.slice(-4)}</code><span>· BNB Chain</span></div></div>
           ${donut}
         </div>
         <div class="kstats num" style="grid-template-columns:1fr 1fr;margin-top:14px">
