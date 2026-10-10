@@ -43,13 +43,19 @@ async function stocks() {
       const tradable = qs.filter(isTradable);
       const best = [...tradable].sort((a, b) => a.sharePrice - b.sharePrice)[0];
       const real = reals[i];
+      const bs = qs.find((q) => q.platformId === "bstock");
+      // These look company-level (NVDA marketCap ~ $5.5T, volume ~ $36B/day), repeated on each issuer's token,
+      // so take one value; don't add them up.
+      const one = (k: "volume24H" | "marketCap" | "peRatioTTM") => Number(bs?.[k] ?? qs.find((q) => q[k])?.[k]) || null;
       return {
         ticker,
         name: qs[0]?.underlyingName ?? ticker,
+        logo: bs?.tokenLogoUrl ?? qs.find((q) => q.tokenLogoUrl)?.tokenLogoUrl ?? null,
+        stats: { pe: one("peRatioTTM"), volume24h: one("volume24H"), marketCap: one("marketCap") },
         onchain: best?.sharePrice ?? qs[0]?.sharePrice ?? null,
         bestIssuer: best ? ISSUER_NAME[best.platformId] : null,
         tradable: tradable.length > 0,
-        issuers: qs.map((q) => ({ name: ISSUER_NAME[q.platformId], symbol: q.tokenSymbol, price: q.sharePrice, open: isTradable(q) })),
+        issuers: qs.map((q) => ({ name: ISSUER_NAME[q.platformId], symbol: q.tokenSymbol, price: q.sharePrice, open: isTradable(q), logo: q.tokenLogoUrl ?? null })),
         real: real ? { price: real.price, prevClose: real.prevClose, at: real.at } : null,
         gapPct: best && real ? (best.sharePrice / real.price - 1) * 100 : null,
         changePct: best && real?.prevClose ? (best.sharePrice / real.prevClose - 1) * 100 : null,

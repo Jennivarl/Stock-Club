@@ -8,6 +8,10 @@ export type RwaToken = {
   underlyingTicker: string;
   underlyingName: string;
   tokenToShareRatio: string;
+  tokenLogoUrl?: string;   // Binance-hosted token logo (bnbstatic.com)
+  marketCap?: string;      // looks company-level (NVDA ~ $5.5T), same value on each issuer's token
+  volume24H?: string;      // looks like the stock's daily volume (NVDA ~ $36B), not on-chain only
+  peRatioTTM?: string;     // the company's P/E (trailing 12 months)
   statusInfo?: { openState: boolean | null; marketStatus: string | null; reasonCode: string | null; reasonMsg: string | null; nextOpenTime: number | null };
 };
 

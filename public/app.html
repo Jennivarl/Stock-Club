@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Stock Club</title>
-<link rel="icon" href="/assets/logo-180.png" />
+<link rel="icon" href="/assets/mark-192.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -19,7 +19,14 @@
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: Manrope, -apple-system, system-ui, sans-serif; font-size: 15px; line-height: 1.45; }
-  body { padding-bottom: calc(78px + env(safe-area-inset-bottom)); -webkit-font-smoothing: antialiased; }
+  body { padding-bottom: calc(78px + env(safe-area-inset-bottom)); -webkit-font-smoothing: antialiased;
+    background:
+      radial-gradient(90% 50% at 100% -10%, rgba(240,185,11,.13), transparent 60%),
+      radial-gradient(70% 40% at -10% 30%, rgba(91,141,239,.07), transparent 60%),
+      var(--bg); background-attachment: fixed; min-height: 100vh; }
+  .goldtext { background: linear-gradient(100deg, #fff1c2 0%, #f0b90b 45%, #ffd56a 70%, #c58d07 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+  .eyebrow::before { content: ""; width: 18px; height: 2px; border-radius: 2px; background: var(--gold); }
   .num { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
   .wrap { padding: 14px 16px; max-width: 560px; margin: 0 auto; }
   h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.03em; margin: 2px 0; }
@@ -27,7 +34,11 @@
   h3 { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 4px; }
   p { margin: 6px 0; }
   .muted { color: var(--muted); font-size: 13px; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; margin: 10px 0; }
+  .card { position: relative; background: linear-gradient(180deg, rgba(28,33,41,.92), rgba(18,22,28,.92)); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; margin: 10px 0;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 10px 30px -18px rgba(0,0,0,.8); }
+  .card.glow { border-color: transparent; background:
+      linear-gradient(180deg, rgba(28,33,41,.96), rgba(16,19,24,.96)) padding-box,
+      linear-gradient(135deg, rgba(240,185,11,.55), rgba(240,185,11,.05) 40%, rgba(255,255,255,.06) 70%, rgba(240,185,11,.35)) border-box; }
   .row { display: flex; align-items: center; gap: 10px; } .between { justify-content: space-between; } .col { display: flex; flex-direction: column; }
   .ic { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
   .ic.sm { width: 16px; height: 16px; } .ic.lg { width: 24px; height: 24px; }
@@ -37,7 +48,10 @@
   @keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 60%, transparent); } 70% { box-shadow: 0 0 0 7px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
   .up { color: var(--up); } .down { color: var(--down); } .gold { color: var(--gold); }
   button { font: inherit; border: 0; cursor: pointer; color: inherit; }
-  .btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px; border-radius: 14px; font-weight: 800; font-size: 16px; background: linear-gradient(180deg, #f6c938, #e5ad06); color: #15120a; margin-top: 10px; box-shadow: 0 8px 24px -10px rgba(240,185,11,.55); }
+  .btn { position: relative; overflow: hidden; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 16px; border-radius: 16px; font-weight: 800; font-size: 16px; letter-spacing: -.01em; background: linear-gradient(180deg, #ffd34d, #e9ae05); color: #15120a; margin-top: 10px; box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 10px 28px -12px rgba(240,185,11,.7); }
+  .btn::after { content: ""; position: absolute; top: 0; left: -60%; width: 40%; height: 100%; background: linear-gradient(100deg, transparent, rgba(255,255,255,.35), transparent); transform: skewX(-20deg); animation: shine 4.5s ease-in-out infinite; }
+  .btn.ghost::after, .btn:disabled::after { display: none; }
+  @keyframes shine { 0%, 70% { left: -60%; } 100% { left: 130%; } }
   .btn.ghost { background: var(--card2); color: var(--fg); box-shadow: none; border: 1px solid var(--line2); }
   .btn.buy { background: linear-gradient(180deg, #1fd796, #12b072); color: #04170e; box-shadow: 0 8px 24px -12px rgba(22,199,132,.6); }
   .btn.sell { background: linear-gradient(180deg, #f6687b, #e23b53); color: #fff; box-shadow: 0 8px 24px -12px rgba(240,77,99,.6); }
@@ -47,17 +61,45 @@
   .chip.on { background: rgba(240,185,11,.12); border-color: var(--gold); color: var(--gold); }
   /* header */
   .brand { display: flex; align-items: center; gap: 10px; }
-  .brand img { width: 34px; height: 34px; border-radius: 10px; }
+  .brand img { width: 36px; height: 36px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(240,185,11,.35), 0 6px 18px -6px rgba(240,185,11,.45); }
   .brand b { font-size: 17px; font-weight: 800; letter-spacing: -0.02em; }
   /* hero */
-  .hero { position: relative; overflow: hidden; background: radial-gradient(120% 140% at 100% 0%, rgba(240,185,11,.16), transparent 55%), var(--card); }
+  .hero { position: relative; overflow: hidden; border-color: transparent; background:
+      radial-gradient(120% 140% at 100% 0%, rgba(240,185,11,.18), transparent 55%) padding-box,
+      linear-gradient(180deg, rgba(28,33,41,.96), rgba(16,19,24,.96)) padding-box,
+      linear-gradient(135deg, rgba(240,185,11,.6), rgba(240,185,11,.06) 45%, rgba(255,255,255,.05) 70%, rgba(240,185,11,.3)) border-box; }
   .hero .k { font-size: 12px; color: var(--muted); font-weight: 600; } .hero .v { font-size: 20px; font-weight: 800; }
   .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
   .stat { background: rgba(255,255,255,.03); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+  /* ticker tape */
+  .tape { position: relative; overflow: hidden; margin: 12px -16px 0; padding: 9px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: rgba(255,255,255,.015); -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+  .tape .run { display: inline-flex; gap: 22px; white-space: nowrap; animation: tape 38s linear infinite; padding-left: 16px; }
+  .tape span { font-size: 12.5px; font-weight: 700; color: var(--fg2); }
+  .tape b { color: var(--fg); margin-right: 6px; }
+  @keyframes tape { to { transform: translateX(-50%); } }
+  /* countdown */
+  .count { display: flex; gap: 6px; margin-top: 12px; }
+  .count div { flex: 1; text-align: center; padding: 10px 0 8px; border-radius: 12px; background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.06); }
+  .count b { display: block; font-size: 24px; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+  .count small { font-size: 10px; font-weight: 800; letter-spacing: .12em; color: var(--muted); }
+  /* movers carousel */
+  .movers { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; margin: 0 -16px; padding: 2px 16px 6px; scrollbar-width: none; }
+  .movers::-webkit-scrollbar { display: none; }
+  .mover { flex: 0 0 150px; scroll-snap-align: start; border-radius: 18px; padding: 14px; background: linear-gradient(180deg, rgba(30,36,45,.95), rgba(17,20,26,.95)); border: 1px solid var(--line); box-shadow: inset 0 1px 0 rgba(255,255,255,.04); }
+  .mover .mono { width: 34px; height: 34px; font-size: 10px; }
+  .mover .p { font-size: 18px; font-weight: 800; margin-top: 10px; letter-spacing: -.02em; }
+  /* progress ring */
+  .ring { position: relative; width: 52px; height: 52px; flex: none; }
+  .ring b { position: absolute; inset: 0; display: grid; place-items: center; font-size: 13px; font-weight: 800; }
   /* stock list */
   .stock { display: grid; grid-template-columns: 40px 1fr 74px 88px; align-items: center; gap: 10px; padding: 12px 4px; border-bottom: 1px solid var(--line); }
   .stock:last-child { border-bottom: 0; }
-  .mono { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-weight: 800; font-size: 11px; letter-spacing: .02em; }
+  .mono { position: relative; overflow: hidden; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 11px; letter-spacing: .02em; flex: none; }
+  .mono img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .ilogo { width: 22px; height: 22px; border-radius: 50%; vertical-align: middle; margin-right: 8px; }
+  .kstats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0 4px; }
+  .kstats div { background: rgba(255,255,255,.03); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+  .kstats small { display: block; font-size: 11px; font-weight: 700; color: var(--muted); } .kstats b { font-size: 15px; }
   .stock .name { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .stock .right { text-align: right; } .price { font-weight: 800; font-size: 15px; }
   .chg { font-size: 12px; font-weight: 700; } .gaptag { font-size: 11px; font-weight: 700; color: var(--muted); }
@@ -88,14 +130,31 @@
   .ob .stage { flex: 1; overflow: hidden; position: relative; touch-action: pan-y; }
   .ob .track { display: flex; height: 100%; transition: transform .35s cubic-bezier(.2,.8,.2,1); }
   .ob .slide { flex: 0 0 100%; display: flex; flex-direction: column; justify-content: center; padding: 0 2px; overflow-y: auto; }
-  .ob .slide h1 { font-size: 30px; line-height: 1.12; margin-top: 18px; }
-  .ob .slide p { color: var(--fg2); font-size: 16px; }
-  .diagram { width: 100%; max-height: 42vh; }
+  .ob .slide h1 { font-size: 31px; line-height: 1.1; margin-top: 10px; letter-spacing: -.035em; }
+  .ob .slide p { color: var(--fg2); font-size: 15.5px; line-height: 1.55; }
+  .ob .slide .eyebrow { margin-top: 14px; }
+  .stagebox { position: relative; border-radius: 22px; padding: 10px 6px; background:
+      radial-gradient(80% 90% at 50% 0%, rgba(240,185,11,.12), transparent 70%),
+      linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.01));
+    border: 1px solid rgba(255,255,255,.06); box-shadow: inset 0 1px 0 rgba(255,255,255,.05); }
+  .stagebox::before { content: ""; position: absolute; inset: 0; border-radius: 22px; pointer-events: none;
+    background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+    background-size: 22px 22px; -webkit-mask-image: radial-gradient(70% 70% at 50% 40%, #000, transparent); mask-image: radial-gradient(70% 70% at 50% 40%, #000, transparent); }
+  .diagram { position: relative; width: 100%; max-height: 40vh; display: block; }
+  .slide.on .grow { animation: grow 1.1s .25s cubic-bezier(.2,.8,.2,1) both; transform-origin: left center; transform-box: fill-box; }
+  .slide.on .pop { animation: pop .5s cubic-bezier(.2,1.4,.4,1) both; transform-box: fill-box; transform-origin: center; }
+  .slide.on .pop.d1 { animation-delay: .9s; } .slide.on .pop.d2 { animation-delay: 1.05s; } .slide.on .pop.d3 { animation-delay: 1.2s; }
+  .slide.on .draw { stroke-dasharray: 400; animation: draw 1.4s .2s ease both; }
+  .slide.on .flow { animation: flow 1.2s linear infinite; }
+  @keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  @keyframes pop { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: scale(1); } }
+  @keyframes draw { from { stroke-dashoffset: 400; } to { stroke-dashoffset: 0; } }
+  @keyframes flow { to { stroke-dashoffset: -16; } }
   .dots { display: flex; gap: 6px; justify-content: center; margin: 12px 0 4px; } .dots i { width: 7px; height: 7px; border-radius: 4px; background: var(--line2); transition: all .3s; } .dots i.on { background: var(--gold); width: 22px; }
   .skip { background: none; color: var(--muted); font-weight: 700; padding: 6px 2px; }
   .check { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--line); }
   .check:last-child { border-bottom: 0; }
-  .tick { width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; flex: none; background: var(--card2); color: var(--muted); border: 1px solid var(--line); }
+  .tick { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; flex: none; background: var(--card2); color: var(--muted); border: 1px solid var(--line); }
   .tick.ok { background: rgba(22,199,132,.14); color: var(--up); border-color: rgba(22,199,132,.35); }
   input { width: 100%; padding: 13px; border-radius: 12px; border: 1px solid var(--line2); background: var(--card2); color: var(--fg); font: inherit; font-size: 14px; margin-top: 8px; }
   input:focus { outline: none; border-color: var(--gold); }
@@ -139,7 +198,7 @@
 
 <!-- ===== Onboarding ===== -->
 <div class="ob" id="ob">
-  <div class="top"><div class="brand"><img src="/assets/logo-180.png" alt="" /><b>Stock Club</b></div><button class="skip" id="obSkip">Skip</button></div>
+  <div class="top"><div class="brand"><img src="/assets/mark-192.png" alt="" /><b>Stock Club</b></div><button class="skip" id="obSkip">Skip</button></div>
   <div class="stage" id="obStage"><div class="track" id="obTrack"></div></div>
   <div class="dots" id="obDots"></div>
   <button class="btn" id="obNext">Next</button>
@@ -148,29 +207,35 @@
 <!-- ===== Markets ===== -->
 <div class="view on" id="v-home"><div class="wrap">
   <div class="row between">
-    <div class="brand"><img src="/assets/logo-180.png" alt="" /><div class="col"><b>Stock Club</b><span class="muted" id="hello" style="font-size:12px">Tokenized stocks on BNB Chain</span></div></div>
+    <div class="brand"><img src="/assets/mark-192.png" alt="" /><div class="col"><b>Stock Club</b><span class="muted" id="hello" style="font-size:12px">Tokenized stocks on BNB Chain</span></div></div>
     <span class="pill" id="wsPill"><span class="live"></span><span id="wsText">…</span></span>
   </div>
+  <div class="tape"><div class="run num" id="tape"></div></div>
 
   <div class="card hero" id="hero">
     <div class="row" style="gap:12px"><svg class="ic lg gold"><use href="#i-moon" id="heroIcon"/></svg>
       <div><h3 id="heroTitle">Wall Street is closed. On-chain isn't.</h3>
       <div class="muted" id="heroText">Tokenized stocks trade 24/7. While the market sleeps, their price can drift from the last real price. That's the <b style="color:var(--fg)">gap</b>.</div></div></div>
+    <div class="muted" style="margin-top:14px;font-weight:700" id="countLabel">Wall Street opens in</div>
+    <div class="count" id="count"><div><b id="cD">–</b><small>DAYS</small></div><div><b id="cH">–</b><small>HRS</small></div><div><b id="cM">–</b><small>MIN</small></div><div><b id="cS">–</b><small>SEC</small></div></div>
     <div class="stats">
-      <div class="stat"><div class="k">Biggest gap</div><div class="v num" id="stGap">–</div><div class="muted" id="stGapT" style="font-size:11px">&nbsp;</div></div>
-      <div class="stat"><div class="k">Trading now</div><div class="v num" id="stOpen">–</div><div class="muted" style="font-size:11px">of 15 stocks</div></div>
-      <div class="stat"><div class="k" id="stNextK">Next open</div><div class="v num" id="stNext">–</div><div class="muted" style="font-size:11px">New York time</div></div>
+      <div class="stat"><div class="k">Biggest gap now</div><div class="v num" id="stGap">–</div><div class="muted" id="stGapT" style="font-size:11px">&nbsp;</div></div>
+      <div class="stat"><div class="k">Trading 24/7</div><div class="v num" id="stOpen">–</div><div class="muted" style="font-size:11px">of 15 stocks</div></div>
+      <div class="stat"><div class="k">Issuers</div><div class="v">2</div><div class="muted" style="font-size:11px">bStocks · Ondo</div></div>
     </div>
   </div>
 
   <div class="card" id="startCard" style="display:none">
-    <div class="row between"><div class="row"><svg class="ic gold"><use href="#i-zap"/></svg><h3 style="margin:0">Finish setting up</h3></div><span class="pill gold num" id="startCount"></span></div>
-    <div class="muted" style="margin-top:4px">A few steps to your first trade with friends.</div>
+    <div class="row" style="gap:14px"><div class="ring" id="startRing"></div>
+      <div style="flex:1"><h3 style="margin:0">Finish setting up</h3><div class="muted">A few steps to your first trade with friends.</div></div></div>
     <button class="btn ghost" id="startBtn">Continue <svg class="ic sm"><use href="#i-next"/></svg></button>
   </div>
 
-  <h2>Stocks</h2>
-  <div class="card" style="padding:4px 12px" id="list"><div style="padding:14px 0"><div class="skel"></div><br><div class="skel"></div><br><div class="skel"></div></div></div>
+  <h2>Top movers</h2>
+  <div class="movers" id="movers"></div>
+  <div class="row between" style="margin:22px 2px 0"><h2 style="margin:0">Stocks</h2>
+    <div class="seg" id="filter"><button data-f="all" class="on">All</button><button data-f="movers">Movers</button><button data-f="gap">Gap</button></div></div>
+  <div class="card glow" style="padding:4px 12px" id="list"><div style="padding:14px 0"><div class="skel"></div><br><div class="skel"></div><br><div class="skel"></div></div></div>
   <div class="muted" style="text-align:center;margin-top:8px">On-chain: Binance Web3 API (bStocks, Ondo) · Real: Finnhub · Gap = on-chain vs real</div>
 </div></div>
 
@@ -206,6 +271,7 @@
   </div>
   <div class="bigprice num" id="sPrice" style="margin-top:10px"></div>
   <div class="row" style="gap:10px"><span class="chg num" id="sChg"></span><span class="pill num" id="sGap"></span></div>
+  <div class="kstats num"><div><small>Market cap</small><b id="kCap">–</b></div><div><small>P/E (TTM)</small><b id="kPe">–</b></div><div><small>Volume 24h</small><b id="kVol">–</b></div></div>
 
   <div class="card" style="padding:14px 10px 10px">
     <div class="row between" style="padding:0 6px">
@@ -223,7 +289,7 @@
     <div class="muted" style="margin-top:8px">Prices per 1 real share. Stock Club picks the cheapest issuer that's trading.</div></div>
 
   <h2>Trade with your club</h2>
-  <div class="card" id="tradeCard">
+  <div class="card glow" id="tradeCard">
     <div class="row" style="gap:8px"><svg class="ic sm gold"><use href="#i-users"/></svg><span class="muted" id="tradeClub"></span></div>
     <div class="chips" id="amounts" style="margin:12px 0 2px"></div>
     <button class="btn buy" id="pBuy"></button>
@@ -252,7 +318,15 @@ const haptic = (k = "light") => { try { tg?.HapticFeedback?.impactOccurred(k); }
 
 // Monogram badge colors per ticker (stable, muted, premium)
 const HUE = { NVDA: 95, TSLA: 0, AAPL: 210, MSFT: 200, META: 220, AMZN: 32, GOOGL: 140, AMD: 350, MU: 260, COIN: 225, CRCL: 190, QQQ: 45, SPY: 45, PLTR: 280, NFLX: 355 };
-function mono(t, el) { const h = HUE[t] ?? 45; const s = `background:hsl(${h} 45% 16%);color:hsl(${h} 80% 72%);border:1px solid hsl(${h} 40% 26%)`; return el ? (el.setAttribute("style", s), el.textContent = t.slice(0, 4)) : `<div class="mono" style="${s}">${t.slice(0, 4)}</div>`; }
+// Real logos from Binance's token data (tokenLogoUrl); colored monogram if a logo is missing or fails to load.
+const LOGOS = {};
+function mono(t, el) {
+  const h = HUE[t] ?? 45, st = `background:hsl(${h} 45% 16%);color:hsl(${h} 80% 72%);border:1px solid hsl(${h} 40% 26%)`;
+  const inner = LOGOS[t] ? `<img src="${LOGOS[t]}" alt="" loading="lazy" onerror="this.remove()" />` : "";
+  if (el) { el.setAttribute("style", st); el.innerHTML = `${t.slice(0, 4)}${inner}`; return; }
+  return `<div class="mono" style="${st}">${t.slice(0, 4)}${inner}</div>`;
+}
+const big = (n) => n == null ? "–" : n >= 1e12 ? `$${(n / 1e12).toFixed(2)}T` : n >= 1e9 ? `$${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : `$${fmt(n, 0)}`;
 
 async function api(path, body) {
   const r = await fetch(`/api/app/${path}`, { method: body ? "POST" : "GET",
@@ -277,13 +351,13 @@ document.querySelectorAll(".tab").forEach((b) => b.onclick = () => {
 
 // ---------- markets ----------
 let me = null, market = null, sparks = {};
-function sparkline(vals, up) {
+function sparkline(vals, up, W = 74, H = 30) {
   if (!vals || vals.length < 2) return "";
-  const W = 74, H = 30, lo = Math.min(...vals), hi = Math.max(...vals), r = hi - lo || 1;
+  const lo = Math.min(...vals), hi = Math.max(...vals), r = hi - lo || 1;
   const pts = vals.map((v, i) => [i / (vals.length - 1) * W, H - 3 - (v - lo) / r * (H - 6)]);
   const d = pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join("");
   const c = up ? "#16c784" : "#f04d63", id = "g" + Math.random().toString(36).slice(2, 7);
-  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs><linearGradient id="${id}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${c}" stop-opacity=".28"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></linearGradient></defs><path d="${d}L${W},${H}L0,${H}Z" fill="url(#${id})"/><path d="${d}" fill="none" stroke="${c}" stroke-width="1.6"/></svg>`;
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="display:block"><defs><linearGradient id="${id}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${c}" stop-opacity=".28"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></linearGradient></defs><path d="${d}L${W},${H}L0,${H}Z" fill="url(#${id})"/><path d="${d}" fill="none" stroke="${c}" stroke-width="1.6"/></svg>`;
 }
 function nextOpen() { // next 9:30 New York on a weekday (ignores holidays)
   const nyNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
@@ -294,6 +368,7 @@ function nextOpen() { // next 9:30 New York on a weekday (ignores holidays)
 }
 async function loadMarkets() {
   market = await api("stocks");
+  for (const s of market.stocks) if (s.logo) LOGOS[s.ticker] = s.logo;
   const ws = market.wallStreet;
   $("wsPill").className = `pill ${ws.open ? "open" : "closed"}`;
   $("wsText").textContent = ws.open ? "Wall Street open" : "Wall Street closed";
@@ -304,11 +379,39 @@ async function loadMarkets() {
   const big = withGap.sort((a, b) => Math.abs(b.gapPct) - Math.abs(a.gapPct))[0];
   if (big) { $("stGap").textContent = pct(big.gapPct); $("stGap").className = `v num ${big.gapPct >= 0 ? "up" : "down"}`; $("stGapT").textContent = big.ticker; }
   $("stOpen").textContent = market.stocks.filter((s) => s.tradable).length;
-  $("stNextK").textContent = ws.open ? "Closes" : "Next open"; $("stNext").textContent = ws.open ? "16:00" : nextOpen();
-  renderList();
+  $("tape").innerHTML = [...market.stocks, ...market.stocks].map((s) => `<span><b>${s.ticker}</b>$${fmt(s.onchain)} <i class="${(s.changePct ?? 0) >= 0 ? "up" : "down"}" style="font-style:normal">${pct(s.changePct)}</i></span>`).join("");
+  renderList(); renderMovers();
 }
+let filter = "all";
+document.querySelectorAll("#filter button").forEach((b) => b.onclick = () => { filter = b.dataset.f; document.querySelectorAll("#filter button").forEach((x) => x.classList.toggle("on", x === b)); haptic(); renderList(); });
+function renderMovers() {
+  const top = [...market.stocks].filter((s) => s.changePct != null).sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct)).slice(0, 6);
+  $("movers").innerHTML = top.map((s) => `<div class="mover" data-t="${s.ticker}">
+    <div class="row between">${mono(s.ticker)}<span class="chg num ${s.changePct >= 0 ? "up" : "down"}">${pct(s.changePct)}</span></div>
+    <div class="p num">$${fmt(s.onchain)}</div><div class="muted" style="font-size:11px;font-weight:700">${s.ticker} · gap ${pct(s.gapPct)}</div>
+    <div style="margin-top:8px">${sparkline(sparks[s.ticker], s.changePct >= 0, 122, 38)}</div></div>`).join("");
+  document.querySelectorAll(".mover").forEach((el) => el.onclick = () => openStock(el.dataset.t));
+}
+// Live countdown to the next Wall Street open (or close), New York time.
+function nextBell() {
+  const nyNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const open = market?.wallStreet?.open;
+  const d = new Date(nyNow);
+  if (open) d.setHours(16, 0, 0, 0);
+  else { d.setHours(9, 30, 0, 0); if (nyNow >= d) d.setDate(d.getDate() + 1); while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1); }
+  return { ms: Math.max(0, d - nyNow), open };
+}
+setInterval(() => {
+  if (!market) return;
+  const { ms, open } = nextBell(), z = (n) => String(n).padStart(2, "0");
+  $("countLabel").textContent = open ? "Wall Street closes in" : "Wall Street opens in";
+  $("cD").textContent = Math.floor(ms / 864e5); $("cH").textContent = z(Math.floor(ms / 36e5) % 24); $("cM").textContent = z(Math.floor(ms / 6e4) % 60); $("cS").textContent = z(Math.floor(ms / 1e3) % 60);
+}, 1000);
 function renderList() {
-  $("list").innerHTML = market.stocks.map((s) => `
+  let rows = [...market.stocks];
+  if (filter === "movers") rows = rows.filter((s) => s.changePct != null).sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct));
+  if (filter === "gap") rows = rows.filter((s) => s.gapPct != null).sort((a, b) => Math.abs(b.gapPct) - Math.abs(a.gapPct));
+  $("list").innerHTML = rows.map((s) => `
     <div class="stock" data-t="${s.ticker}">
       ${mono(s.ticker)}
       <div style="min-width:0"><div><b>${s.ticker}</b></div><div class="name">${s.name}</div></div>
@@ -321,7 +424,7 @@ function renderList() {
     </div>`).join("");
   document.querySelectorAll(".stock").forEach((el) => el.onclick = () => openStock(el.dataset.t));
 }
-async function loadSparks() { try { sparks = await fetch("/api/app/sparks").then((r) => r.json()); if (market) renderList(); } catch {} }
+async function loadSparks() { try { sparks = await fetch("/api/app/sparks").then((r) => r.json()); if (market) { renderList(); renderMovers(); } } catch {} }
 
 // ---------- me / club ----------
 async function loadMe() {
@@ -390,7 +493,8 @@ function openStock(t) {
   $("sPrice").textContent = `$${fmt(s.onchain)}`;
   $("sChg").className = `chg num ${(s.changePct ?? 0) >= 0 ? "up" : "down"}`; $("sChg").textContent = s.changePct != null ? `${pct(s.changePct)} vs last close` : "";
   $("sGap").innerHTML = s.gapPct != null ? `${icon("gap", "sm")} gap ${pct(s.gapPct)} vs real $${fmt(s.real.price)}` : "";
-  $("sIssuers").innerHTML = s.issuers.map((i) => `<tr><td><b>${i.name}</b> <span class="muted">${i.symbol}</span> ${i.open ? "" : `<span class="pill closed">${icon("pause", "sm")}paused</span>`}</td><td class="num">$${fmt(i.price)}</td></tr>`).join("")
+  $("kCap").textContent = big(s.stats?.marketCap); $("kPe").textContent = s.stats?.pe ? s.stats.pe.toFixed(1) : "–"; $("kVol").textContent = big(s.stats?.volume24h);
+  $("sIssuers").innerHTML = s.issuers.map((i) => `<tr><td>${i.logo ? `<img class="ilogo" src="${i.logo}" alt="" onerror="this.remove()" />` : ""}<b>${i.name}</b> <span class="muted">${i.symbol}</span> ${i.open ? "" : `<span class="pill closed">${icon("pause", "sm")}paused</span>`}</td><td class="num">$${fmt(i.price)}</td></tr>`).join("")
     + (s.real ? `<tr><td class="muted">Real stock · last price</td><td class="muted num">$${fmt(s.real.price)}</td></tr>` : "");
   renderTrade();
   $("sheet").classList.add("on"); $("sheet").scrollTop = 0; tg?.BackButton?.show();
@@ -467,49 +571,86 @@ async function drawCharts() {
 }
 
 // ---------- onboarding (swipe or tap Next) ----------
-const D1 = `<svg class="diagram" viewBox="0 0 320 210"><defs><linearGradient id="dg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ffe7a3"/><stop offset="1" stop-color="#e5ad06"/></linearGradient></defs>
-  <rect x="10" y="30" width="122" height="92" rx="16" fill="#14181e" stroke="#2c3440"/><text x="26" y="58" fill="#7d8794" font-size="11" font-weight="700">NASDAQ</text><text x="26" y="84" fill="#eef0f3" font-size="22" font-weight="800">NVDA</text><text x="26" y="106" fill="#7d8794" font-size="12">1 real share</text>
-  <rect x="188" y="30" width="122" height="92" rx="16" fill="#1d1806" stroke="#f0b90b" stroke-opacity=".55"/><text x="204" y="58" fill="#f0b90b" font-size="11" font-weight="700">BNB CHAIN</text><text x="204" y="84" fill="#eef0f3" font-size="22" font-weight="800">NVDAB</text><text x="204" y="106" fill="#b9c0ca" font-size="12">1 token</text>
-  <path d="M140 66h40" stroke="#f0b90b" stroke-width="2.5" stroke-linecap="round"/><path d="m172 59 8 7-8 7" fill="none" stroke="#f0b90b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M180 88h-40" stroke="#7d8794" stroke-width="2" stroke-dasharray="4 4" stroke-linecap="round"/><text x="160" y="110" fill="#7d8794" font-size="10" text-anchor="middle">tracks</text>
-  <path d="M249 130v22" stroke="#2c3440" stroke-width="2"/><rect x="190" y="152" width="118" height="44" rx="14" fill="#14181e" stroke="#2c3440"/>
-  <g transform="translate(204 163)" fill="none" stroke="#f0b90b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 5V3a1 1 0 0 0-1-1H4a2 2 0 0 0 0 4h13a1 1 0 0 1 1 1v3h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2"/><path d="M2 4v12a2 2 0 0 0 2 2h13a1 1 0 0 0 1-1v-3"/></g>
-  <text x="232" y="179" fill="#eef0f3" font-size="13" font-weight="700">Your wallet</text>
-  <text x="10" y="168" fill="#b9c0ca" font-size="12">Issued by</text><text x="10" y="186" fill="#eef0f3" font-size="13" font-weight="800">bStocks · Ondo</text></svg>`;
+// Shared SVG defs for the diagrams (gold metal, glass, glow).
+const DEFS = `<defs>
+  <linearGradient id="gm" x1="0" x2="1"><stop offset="0" stop-color="#8a5f05"/><stop offset=".35" stop-color="#ffe7a3"/><stop offset=".6" stop-color="#f0b90b"/><stop offset="1" stop-color="#9c6d05"/></linearGradient>
+  <linearGradient id="gl" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#232933"/><stop offset="1" stop-color="#14181e"/></linearGradient>
+  <linearGradient id="glg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#2a2410"/><stop offset="1" stop-color="#16130a"/></linearGradient>
+  <linearGradient id="edgeG" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#f0b90b" stop-opacity=".9"/><stop offset=".5" stop-color="#f0b90b" stop-opacity=".15"/><stop offset="1" stop-color="#f0b90b" stop-opacity=".6"/></linearGradient>
+  <linearGradient id="edgeN" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity=".22"/><stop offset="1" stop-color="#ffffff" stop-opacity=".04"/></linearGradient>
+  <linearGradient id="area" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#f0b90b" stop-opacity=".35"/><stop offset="1" stop-color="#f0b90b" stop-opacity="0"/></linearGradient>
+  <linearGradient id="vote" x1="0" x2="1"><stop offset="0" stop-color="#0fa56c"/><stop offset="1" stop-color="#2ee6a0"/></linearGradient>
+  <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="8"/></filter>
+</defs>`;
+const wal = (x, y, s = 1) => `<g transform="translate(${x} ${y}) scale(${s})" fill="none" stroke="#f0b90b" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V3a1 1 0 0 0-1-1H3.5a1.5 1.5 0 0 0 0 3H15a1 1 0 0 1 1 1v2.5h-2.5a1.5 1.5 0 0 0 0 3H16"/><path d="M2 3.5v9.5A1.5 1.5 0 0 0 3.5 14.5H15a1 1 0 0 0 1-1V11"/></g>`;
+const chk = (x, y) => `<g transform="translate(${x} ${y})"><circle r="8" fill="#16c784"/><path d="M-3.5 0 l2.4 2.4 l4.6 -4.8" fill="none" stroke="#04170e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>`;
+
+// 1. A real share on Nasdaq -> a token on BNB Chain -> in your wallet
+const D1 = `<svg class="diagram" viewBox="0 0 320 230">${DEFS}
+  <ellipse cx="236" cy="70" rx="70" ry="40" fill="#f0b90b" opacity=".18" filter="url(#soft)"/>
+  <g class="pop"><rect x="8" y="22" width="132" height="98" rx="18" fill="url(#gl)" stroke="url(#edgeN)"/>
+    <text x="24" y="46" fill="#7d8794" font-size="10" font-weight="800" letter-spacing="1.2">NASDAQ</text>
+    <text x="24" y="74" fill="#eef0f3" font-size="24" font-weight="800">NVDA</text>
+    <text x="24" y="96" fill="#b9c0ca" font-size="12" font-weight="700">$229.28</text><text x="80" y="96" fill="#7d8794" font-size="11">· 1 share</text>
+    <path d="M24 108 l14 -5 l12 3 l14 -7 l14 2 l14 -6" fill="none" stroke="#7d8794" stroke-width="1.5" stroke-linecap="round"/></g>
+  <g class="pop d1"><rect x="180" y="22" width="132" height="98" rx="18" fill="url(#glg)" stroke="url(#edgeG)" stroke-width="1.3"/>
+    <text x="196" y="46" fill="#f0b90b" font-size="10" font-weight="800" letter-spacing="1.2">BNB CHAIN</text>
+    <text x="196" y="74" fill="#fff1c2" font-size="24" font-weight="800">NVDAB</text>
+    <text x="196" y="96" fill="#eef0f3" font-size="12" font-weight="700">$230.44</text><text x="252" y="96" fill="#b9a46a" font-size="11">· 1 token</text>
+    <path d="M196 108 l14 -5 l12 3 l14 -7 l14 2 l14 -6" fill="none" stroke="#f0b90b" stroke-width="1.6" stroke-linecap="round"/></g>
+  <path class="flow" d="M142 71 H178" stroke="#f0b90b" stroke-width="2" stroke-dasharray="4 4"/>
+  <rect x="146" y="58" width="28" height="26" rx="9" fill="#0a0c10" stroke="#f0b90b" stroke-opacity=".7"/><text x="160" y="75" text-anchor="middle" fill="#f0b90b" font-size="10.5" font-weight="800">1:1</text>
+  <path class="draw" d="M246 122 C 246 146, 200 140, 196 158" fill="none" stroke="#f0b90b" stroke-opacity=".6" stroke-width="1.6"/>
+  <g class="pop d2"><rect x="66" y="156" width="188" height="58" rx="18" fill="url(#gl)" stroke="url(#edgeG)"/>
+    <rect x="80" y="168" width="34" height="34" rx="11" fill="#2a2410" stroke="#f0b90b" stroke-opacity=".4"/>${wal(88, 176, 1.1)}
+    <text x="124" y="184" fill="#7d8794" font-size="10.5" font-weight="700">YOUR WALLET</text>
+    <text x="124" y="202" fill="#eef0f3" font-size="13.5" font-weight="800">0.0434 NVDAB</text><text x="222" y="202" fill="#16c784" font-size="11" font-weight="800">$10</text></g>
+</svg>`;
+
+// 2. A week: Wall Street opens Mon-Fri only; on-chain trades nonstop; the weekend gap
 const D2 = (() => {
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], x0 = 34, w = 38;
-  let s = `<svg class="diagram" viewBox="0 0 320 210">`;
-  days.forEach((d, i) => { const x = x0 + i * w; s += `<text x="${x + w / 2}" y="198" fill="#7d8794" font-size="11" text-anchor="middle" font-weight="700">${d}</text>`; if (i < 5) s += `<rect x="${x + 12}" y="58" width="14" height="22" rx="4" fill="#2c3440"/>`; });
-  s += `<rect x="${x0 + 5 * w}" y="20" width="${2 * w}" height="160" rx="10" fill="#f04d63" fill-opacity=".06" stroke="#f04d63" stroke-opacity=".25" stroke-dasharray="4 4"/>`;
-  s += `<text x="4" y="73" fill="#7d8794" font-size="10" font-weight="700">NYSE</text><text x="4" y="133" fill="#f0b90b" font-size="10" font-weight="700">BNB</text>`;
-  s += `<path d="M${x0} 128 C 80 120, 110 136, 150 126 S 210 122, 222 124 S 250 108, 270 100 S 300 92, 300 90" fill="none" stroke="#f0b90b" stroke-width="2.5"/>`;
-  s += `<path d="M222 124 H 300" stroke="#7d8794" stroke-width="1.5" stroke-dasharray="4 4"/>`;
-  s += `<path d="M296 96 V 120" stroke="#f04d63" stroke-width="2" marker-end="none"/><circle cx="296" cy="96" r="3" fill="#f04d63"/><circle cx="296" cy="122" r="3" fill="#7d8794"/>`;
-  s += `<text x="${x0 + 5 * w + w}" y="40" fill="#f04d63" font-size="11" font-weight="800" text-anchor="middle">GAP</text>`;
-  s += `<text x="${x0}" y="100" fill="#7d8794" font-size="10">Wall Street open</text></svg>`;
+  const days = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"], x0 = 30, w = 40;
+  let s = `<svg class="diagram" viewBox="0 0 320 230">${DEFS}`;
+  s += `<rect x="${x0 + 5 * w - 2}" y="14" width="${2 * w + 4}" height="182" rx="14" fill="#f04d63" fill-opacity=".07" stroke="#f04d63" stroke-opacity=".3" stroke-dasharray="3 4"/>`;
+  s += `<g class="pop d2"><rect x="${x0 + 5 * w + 6}" y="22" width="${2 * w - 12}" height="22" rx="11" fill="#f04d63"/><text x="${x0 + 6 * w}" y="37" text-anchor="middle" fill="#fff" font-size="10.5" font-weight="800">CLOSED</text></g>`;
+  days.forEach((d, i) => { const x = x0 + i * w; s += `<text x="${x + w / 2}" y="214" fill="${i > 4 ? "#f04d63" : "#7d8794"}" font-size="9.5" text-anchor="middle" font-weight="800" letter-spacing=".8">${d}</text>`;
+    if (i < 5) s += `<rect class="pop" style="animation-delay:${0.1 + i * 0.08}s" x="${x + 8}" y="62" width="${w - 16}" height="16" rx="8" fill="#2c3440"/>`; });
+  s += `<text x="4" y="74" fill="#7d8794" font-size="9" font-weight="800">NYSE</text><text x="4" y="146" fill="#f0b90b" font-size="9" font-weight="800">BNB</text>`;
+  const line = `M${x0} 150 C 60 140, 80 158, 110 146 S 160 140, 180 150 S 220 150, 232 146 S 262 118, 282 112 S 306 100, 310 98`;
+  s += `<path d="${line} L310 196 L${x0} 196 Z" fill="url(#area)" opacity=".7"/>`;
+  s += `<path class="draw" d="${line}" fill="none" stroke="url(#gm)" stroke-width="3" stroke-linecap="round"/>`;
+  s += `<path d="M232 146 H310" stroke="#7d8794" stroke-width="1.5" stroke-dasharray="4 4"/><text x="246" y="162" fill="#7d8794" font-size="9" font-weight="700">last real price</text>`;
+  s += `<path d="M300 101 V 143" stroke="#f04d63" stroke-width="2"/><circle cx="300" cy="100" r="4" fill="#f0b90b" stroke="#0a0c10" stroke-width="2"/><circle cx="300" cy="146" r="3.5" fill="#7d8794"/>`;
+  s += `<g class="pop d3"><rect x="226" y="58" width="74" height="26" rx="13" fill="#0a0c10" stroke="#f04d63" stroke-opacity=".8"/><text x="263" y="75" text-anchor="middle" fill="#f04d63" font-size="11" font-weight="800">GAP +0.8%</text></g>`;
+  s += `</svg>`;
   return s;
 })();
-const D3 = `<svg class="diagram" viewBox="0 0 320 210">
-  ${[0, 1, 2].map((i) => `<circle cx="${56 + i * 26}" cy="44" r="20" fill="hsl(${[45, 200, 140][i]} 45% 18%)" stroke="#0a0c10" stroke-width="3"/><text x="${56 + i * 26}" y="49" fill="hsl(${[45, 200, 140][i]} 80% 72%)" font-size="13" font-weight="800" text-anchor="middle">${"AVK"[i]}</text>`).join("")}
-  <text x="148" y="40" fill="#eef0f3" font-size="13" font-weight="800">"Buy $10 NVDA?"</text><text x="148" y="58" fill="#7d8794" font-size="11">proposed in your group</text>
-  <path d="M82 72v20" stroke="#2c3440" stroke-width="2"/>
-  <rect x="20" y="92" width="280" height="40" rx="12" fill="#14181e" stroke="#2c3440"/><rect x="32" y="106" width="180" height="12" rx="6" fill="#1b2028"/><rect x="32" y="106" width="150" height="12" rx="6" fill="#16c784"/>
-  <text x="226" y="117" fill="#16c784" font-size="12" font-weight="800">3 of 3 yes</text>
-  <path d="M82 132v14M160 132v14M238 132v14" stroke="#2c3440" stroke-width="2"/>
-  ${[82, 160, 238].map((x) => `<rect x="${x - 34}" y="146" width="68" height="48" rx="12" fill="#1d1806" stroke="#f0b90b" stroke-opacity=".45"/><g transform="translate(${x - 9} 154)" fill="none" stroke="#f0b90b" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V3a1 1 0 0 0-1-1H3.5a1.5 1.5 0 0 0 0 3H15a1 1 0 0 1 1 1v2.5h-2.5a1.5 1.5 0 0 0 0 3H16"/><path d="M2 3.5v9.5A1.5 1.5 0 0 0 3.5 14.5H15a1 1 0 0 0 1-1V11"/></g><text x="${x}" y="186" fill="#eef0f3" font-size="10" font-weight="700" text-anchor="middle">own wallet</text>`).join("")}
+
+// 3. Friends vote in the group, then each buys in their own wallet
+const D3 = `<svg class="diagram" viewBox="0 0 320 230">${DEFS}
+  ${[["A", 45], ["V", 200], ["K", 140]].map(([l, h], i) => `<g class="pop" style="animation-delay:${i * 0.1}s"><circle cx="${40 + i * 26}" cy="36" r="21" fill="hsl(${h} 50% 18%)" stroke="#0a0c10" stroke-width="3"/><circle cx="${40 + i * 26}" cy="36" r="21" fill="none" stroke="hsl(${h} 70% 60%)" stroke-opacity=".6" stroke-width="1.4"/><text x="${40 + i * 26}" y="41" fill="hsl(${h} 85% 75%)" font-size="13" font-weight="800" text-anchor="middle">${l}</text></g>`).join("")}
+  <g class="pop d1"><rect x="124" y="14" width="186" height="46" rx="16" fill="url(#gl)" stroke="url(#edgeN)"/><path d="M124 40 l-8 6 l9 -1 z" fill="#232933"/>
+    <text x="138" y="34" fill="#eef0f3" font-size="12.5" font-weight="800">Buy $10 of NVDA each?</text><text x="138" y="50" fill="#7d8794" font-size="10">proposed by Ada · vote closes in 2 h</text></g>
+  <rect x="20" y="78" width="290" height="44" rx="15" fill="url(#gl)" stroke="url(#edgeN)"/>
+  <text x="34" y="96" fill="#b9c0ca" font-size="10" font-weight="800" letter-spacing=".8">YES</text><text x="290" y="96" fill="#16c784" font-size="11" font-weight="800" text-anchor="end">3 of 3 · passed</text>
+  <rect x="34" y="104" width="256" height="8" rx="4" fill="#1b2028"/><rect class="grow" x="34" y="104" width="256" height="8" rx="4" fill="url(#vote)"/>
+  <path class="draw" d="M165 122 C 165 136, 70 130, 70 146 M165 122 V146 M165 122 C 165 136, 260 130, 260 146" fill="none" stroke="#f0b90b" stroke-opacity=".55" stroke-width="1.6"/>
+  ${[70, 165, 260].map((x, i) => `<g class="pop d${i + 1}"><rect x="${x - 44}" y="146" width="88" height="68" rx="16" fill="url(#glg)" stroke="url(#edgeG)"/>${wal(x - 9, 156, 1.05)}
+    <text x="${x}" y="190" fill="#eef0f3" font-size="11.5" font-weight="800" text-anchor="middle">+0.043</text><text x="${x}" y="204" fill="#b9a46a" font-size="9" font-weight="700" text-anchor="middle">NVDAB · own wallet</text>${chk(x + 34, 150)}</g>`).join("")}
 </svg>`;
 const SLIDES = [
-  { d: D1, h: "Real stocks, on-chain", p: "Tokenized stocks are tokens on BNB Chain that follow a real share, like Nvidia or Tesla. Issued by bStocks and Ondo, they sit in <b style='color:var(--fg)'>your own wallet</b>." },
-  { d: D2, h: "Markets close. On-chain doesn't.", p: "Wall Street shuts at night and on weekends; tokenized stocks keep trading. Their price can drift from the real one: the <b style='color:var(--fg)'>gap</b>. Stock Club shows it and blocks trades when it's too big." },
-  { d: D3, h: "Decide together. Buy yourself.", p: "Friends propose and vote in a Telegram group. When a vote passes, <b style='color:var(--fg)'>everyone buys in their own wallet</b>, with one tap or automatically with Autopilot." },
+  { e: "01 · The asset", d: D1, h: "Real stocks, <span class='goldtext'>on-chain</span>.", p: "Tokenized stocks are tokens on BNB Chain that follow a real share, like Nvidia or Tesla. Issued by bStocks and Ondo, they sit in <b style='color:var(--fg)'>your own wallet</b>." },
+  { e: "02 · The edge", d: D2, h: "Markets close. <span class='goldtext'>On-chain doesn't</span>.", p: "Wall Street shuts at night and on weekends; tokenized stocks keep trading. Their price can drift from the real one: the <b style='color:var(--fg)'>gap</b>. Stock Club shows it and blocks trades when it's too big." },
+  { e: "03 · The club", d: D3, h: "Decide together. <span class='goldtext'>Buy yourself</span>.", p: "Friends propose and vote in a Telegram group. When a vote passes, <b style='color:var(--fg)'>everyone buys in their own wallet</b>, with one tap or automatically with Autopilot." },
 ];
 let slide = 0;
 function buildSlides() {
-  $("obTrack").innerHTML = SLIDES.map((s) => `<div class="slide">${s.d}<h1>${s.h}</h1><p>${s.p}</p></div>`).join("") + `<div class="slide" id="obCheck"></div>`;
+  $("obTrack").innerHTML = SLIDES.map((s) => `<div class="slide"><div class="stagebox">${s.d}</div><span class="eyebrow">${s.e}</span><h1>${s.h}</h1><p>${s.p}</p></div>`).join("") + `<div class="slide" id="obCheck"></div>`;
 }
 function go(i) {
   slide = Math.max(0, Math.min(SLIDES.length, i));
   $("obTrack").style.transform = `translateX(-${slide * 100}%)`;
+  document.querySelectorAll("#obTrack .slide").forEach((el, k) => { el.classList.remove("on"); if (k === slide) { void el.offsetWidth; el.classList.add("on"); } });
   $("obDots").innerHTML = [...SLIDES, 0].map((_, k) => `<i class="${k === slide ? "on" : ""}"></i>`).join("");
   $("obSkip").textContent = slide < SLIDES.length ? "Skip" : "Later";
   if (slide < SLIDES.length) { $("obNext").innerHTML = slide === SLIDES.length - 1 ? `Get ready ${icon("next", "sm")}` : `Next ${icon("next", "sm")}`; $("obNext").onclick = () => { haptic(); go(slide + 1); }; }
@@ -533,8 +674,9 @@ async function renderChecklist() {
     { ok: did, i: "zap", t: "Your first trade", d: hasClub ? "Try it with $1: propose NVDA, vote yes in the group, then tap Buy in your chat with me." : "After you join a club." },
   ];
   const done = steps.filter((s) => s.ok).length;
-  $("obCheck").innerHTML = `<h1 style="margin-top:6px">Get ready</h1><div class="muted num">${done} of ${steps.length} done</div>
-    <div class="card" style="margin-top:12px;padding:4px 14px">${steps.map((s) => `<div class="check"><div class="tick ${s.ok ? "ok" : ""}">${icon(s.ok ? "check" : s.i, "sm")}</div><div style="flex:1"><b>${s.t}</b><div class="muted">${s.d}</div></div></div>`).join("")}</div>`;
+  $("obCheck").innerHTML = `<span class="eyebrow">04 · Your setup</span><h1 style="margin-top:8px">Get <span class="goldtext">ready</span>.</h1>
+    <div class="row" style="gap:10px;margin-top:6px"><div style="flex:1;height:6px;border-radius:4px;background:var(--card2);overflow:hidden"><div style="width:${done / steps.length * 100}%;height:100%;background:linear-gradient(90deg,#c58d07,#ffd34d)"></div></div><span class="muted num" style="font-weight:700">${done}/${steps.length}</span></div>
+    <div class="card glow" style="margin-top:12px;padding:4px 14px">${steps.map((s) => `<div class="check"><div class="tick ${s.ok ? "ok" : ""}">${icon(s.ok ? "check" : s.i, "sm")}</div><div style="flex:1"><b>${s.t}</b><div class="muted">${s.d}</div></div></div>`).join("")}</div>`;
   const first = hasClub && !did;
   $("obNext").innerHTML = !wallet ? "Check my wallet" : first ? `${icon("zap", "sm")}Try my first $1 trade` : "Go to Markets";
   $("obNext").onclick = () => {
@@ -549,7 +691,8 @@ function finishOnboarding() { store.set("onboarded", "1"); $("ob").classList.rem
 $("obSkip").onclick = () => { haptic(); if (slide < SLIDES.length) go(SLIDES.length); else finishOnboarding(); };
 function renderStart(done, total) {
   $("startCard").style.display = store.get("onboarded") === "1" && store.get("didTrade") !== "1" ? "" : "none";
-  if (done != null) $("startCount").textContent = `${done}/${total}`;
+  if (done != null) { const r = 22, c = 2 * Math.PI * r, f = done / total;
+    $("startRing").innerHTML = `<svg width="52" height="52" viewBox="0 0 52 52"><circle cx="26" cy="26" r="${r}" fill="none" stroke="#232933" stroke-width="5"/><circle cx="26" cy="26" r="${r}" fill="none" stroke="#f0b90b" stroke-width="5" stroke-linecap="round" stroke-dasharray="${c * f} ${c}" transform="rotate(-90 26 26)"/></svg><b class="num">${done}/${total}</b>`; }
 }
 $("startBtn").onclick = () => showOnboarding(SLIDES.length);
 document.querySelector("#v-home .brand").onclick = () => { haptic(); showOnboarding(0); }; // replay the intro anytime
