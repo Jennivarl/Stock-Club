@@ -118,7 +118,14 @@ export function startWeb(api: Api) {
           // The trade token is in the router's call data; we watch the chain for it too.
           watchForBuy(api, order!, plan.wallet, plan.tx.to, order!.side === "sell" ? plan.fromToken : order!.token_address);
         }
-        sendTransaction(order!.telegram_user_id, tx)
+        let sentTx;
+        try {
+          sentTx = await sendTransaction(order!.telegram_user_id, tx);
+        } catch (e: any) {
+          requests.set(order!.id, { ...r, status: "error", error: e?.message ?? String(e) });
+          return send(res, 502, { error: `Couldn't reach your wallet: ${e?.message ?? e}. Try "Use a different wallet".` });
+        }
+        sentTx.result
           .then((hash) => {
             if (requests.get(order!.id) === r) requests.set(order!.id, { ...r, status: "ok", hash });
             console.log("wc request ok", order!.id, kind, hash);
@@ -129,7 +136,8 @@ export function startWeb(api: Api) {
             if (requests.get(order!.id) === r) requests.set(order!.id, { ...r, status: "error", error: msg });
             console.log("wc request error", order!.id, kind, msg);
           });
-        return send(res, 200, { ok: true });
+        console.log("wc request sent", order!.id, kind);
+        return send(res, 200, { ok: true, link: sentTx.link });
       }
 
       if (req.method === "GET" && url.pathname === "/api/progress") {

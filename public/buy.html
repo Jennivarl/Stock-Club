@@ -77,7 +77,6 @@ const $ = (id) => document.getElementById(id);
 const show = (id, on = true) => $(id).classList.toggle("hidden", !on);
 const openLink = (u) => (tg?.openLink ? tg.openLink(u) : window.open(u, "_blank"));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const BINANCE = "https://app.binance.com/cedefi"; // opens Binance Wallet so it shows the waiting request
 
 let plan, order, sell = false, link;
 
@@ -116,7 +115,6 @@ function screen(msg, detail = "", button, second) {
 }
 const waiting = (text) => `<span class="spin"></span>${text}`;
 const failed = (msg) => screen(`<span class="bad">${msg}</span>`, "Nothing happened to your money.", { label: "Try again", onClick: makePlan });
-const openWallet = { label: "Open Binance Wallet", onClick: () => { log("open-wallet-tap"); openLink(BINANCE); } };
 const short = (a) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
 function doneScreen(o) {
@@ -236,12 +234,15 @@ async function resetWallet() {
 // Then waits for the server: the wallet's answer, or the chain showing it happened.
 async function ask(kind, done) {
   log("send-tap", kind);
-  const sent = api("send", { kind });
-  openLink(BINANCE);
   const word = kind === "approve" ? "approval" : sell ? "sale" : "buy";
+  screen(waiting("Sending it to your wallet…"));
+  // The server sends the request, then gives us the link that opens Binance on exactly this request.
+  const { link: reqLink } = await api("send", { kind });
+  log("open-request", reqLink.replace(/sessionTopic=\w+/, "sessionTopic=…"));
+  openLink(reqLink);
   screen(`Confirm in <b>Binance Wallet</b>, then come back to Telegram.`,
-    waiting(`Watching for your ${word}. This page updates by itself.`), openWallet);
-  try { await sent; } catch (e) { throw e; }
+    waiting(`Watching for your ${word}. This page updates by itself.`),
+    { label: "Open Binance Wallet", onClick: () => { log("open-wallet-tap"); openLink(reqLink); } });
   const t0 = Date.now();
   while (Date.now() - t0 < 20 * 60_000) {
     await sleep(2500);

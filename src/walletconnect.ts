@@ -88,19 +88,27 @@ export async function pairingLink(telegramUserId: number): Promise<string> {
 
 export const pairingStatus = (telegramUserId: number) => pairings.get(telegramUserId)?.status;
 
-// Sends one transaction to the member's wallet. Resolves with the tx hash, or rejects with the wallet's error.
-// The answer can take a long time (the member is in the Binance app), so callers don't wait on it alone.
-export async function sendTransaction(telegramUserId: number, tx: Record<string, string>): Promise<string> {
+// Sends one transaction to the member's wallet.
+// `link` opens Binance on this exact request. WalletConnect's own format (sign-client opens it itself when it
+// runs in a browser): <wallet link>/wc?requestId=<id>&sessionTopic=<topic>. Opening the bare
+// https://app.binance.com/cedefi instead makes Binance show "QR code expired" (Oct 10).
+// `result` resolves with the tx hash or rejects with the wallet's error; it can take minutes.
+export async function sendTransaction(telegramUserId: number, tx: Record<string, string>): Promise<{ link: string; result: Promise<string> }> {
   const s = await sessionOf(telegramUserId);
   if (!s) throw new Error("Wallet not connected");
   const c = await client();
-  return c.request<string>({
+  // sign-client tells us the request id right after it publishes the request.
+  const sent = new Promise<number>((resolve, reject) => {
+    const on = (e: { topic: string; id: number }) => { if (e.topic === s.topic) { c.events.off("session_request_sent", on); resolve(e.id); } };
+    c.events.on("session_request_sent", on);
+    setTimeout(() => { c.events.off("session_request_sent", on); reject(new Error("WalletConnect didn't send the request.")); }, 20_000);
+  });
+  const result = c.request<string>({
     topic: s.topic,
     chainId: CHAIN,
-    // No custom expiry: with expiry 15 min Binance Wallet showed "Failed to retrieve transaction information /
-    // QR code expired" and answered "rejected" (Oct 10). The default is 5 min.
     request: { method: "eth_sendTransaction", params: [{ from: s.address, ...tx }] },
   });
+  result.catch(() => {}); // the caller handles it; don't crash on an unhandled rejection meanwhile
+  const id = await Promise.race([sent, result.then(() => { throw new Error("answered before sent"); })]);
+  return { link: `${BINANCE_UNIVERSAL}/wc?requestId=${id}&sessionTopic=${s.topic}`, result };
 }
-
-export const openWalletLink = BINANCE_UNIVERSAL;
