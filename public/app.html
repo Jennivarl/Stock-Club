@@ -79,9 +79,12 @@
   @keyframes tape { to { transform: translateX(-50%); } }
   /* countdown */
   .count { display: flex; gap: 6px; margin-top: 12px; }
-  .count div { flex: 1; text-align: center; padding: 10px 0 8px; border-radius: 12px; background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.06); }
-  .count b { display: block; font-size: 24px; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
-  .count small { font-size: 10px; font-weight: 800; letter-spacing: .12em; color: var(--muted); }
+  .count div { position: relative; overflow: hidden; flex: 1; text-align: center; padding: 10px 0 8px; border-radius: 14px;
+    background: linear-gradient(180deg, #ffd84f 0%, #f0b90b 55%, #d99e05 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.55), inset 0 -2px 0 rgba(0,0,0,.12), 0 10px 22px -12px rgba(240,185,11,.75); }
+  .count div::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: rgba(0,0,0,.12); }
+  .count b { display: block; font-size: 26px; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; color: #15120a; }
+  .count small { font-size: 10px; font-weight: 800; letter-spacing: .12em; color: rgba(21,18,10,.62); }
   /* movers carousel */
   .movers { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; margin: 0 -16px; padding: 2px 16px 6px; scrollbar-width: none; }
   .movers::-webkit-scrollbar { display: none; }
