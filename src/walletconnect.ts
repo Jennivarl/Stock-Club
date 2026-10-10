@@ -97,8 +97,9 @@ export async function sendTransaction(telegramUserId: number, tx: Record<string,
   return c.request<string>({
     topic: s.topic,
     chainId: CHAIN,
+    // No custom expiry: with expiry 15 min Binance Wallet showed "Failed to retrieve transaction information /
+    // QR code expired" and answered "rejected" (Oct 10). The default is 5 min.
     request: { method: "eth_sendTransaction", params: [{ from: s.address, ...tx }] },
-    expiry: 15 * 60, // seconds; default is 5 min, members may take longer in the app
   });
 }
 

@@ -164,9 +164,20 @@ async function checkWallet() {
   const w = await api("wallet");
   if (w.connected) return makePlan();
   link = w.link;
+  keepLinkFresh();
   screen(`Connect the wallet that holds your ${sell ? order.ticker : "USDT"} and a little BNB (BNB Smart Chain).`,
     "Binance Wallet opens. Approve the connection there, then come back to Telegram.",
     { label: "Connect Binance Wallet", onClick: connect });
+}
+
+// Connect links expire after 5 minutes. The server makes a new one after 4, so ask for it every
+// 30 s and whenever you come back to this page, so the button never opens an expired link.
+let fresher;
+function keepLinkFresh() {
+  const refresh = async () => { const w = await api("wallet").catch(() => null); if (w?.link) link = w.link; };
+  clearInterval(fresher);
+  fresher = setInterval(refresh, 30_000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
 }
 
 async function connect() {
@@ -187,6 +198,7 @@ async function connect() {
 }
 
 async function makePlan() {
+  clearInterval(fresher); // connected, no more connect links needed
   step("connect", "done"); step("allow", ""); step("buy", "active");
   screen(waiting("Getting a price from Binance…"));
   try {
