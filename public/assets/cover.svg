@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" width="640" height="360">
+  <defs>
+    <radialGradient id="bg" cx="0.28" cy="0.45" r="0.9">
+      <stop offset="0" stop-color="#211b0c"/>
+      <stop offset="0.5" stop-color="#111214"/>
+      <stop offset="1" stop-color="#07080a"/>
+    </radialGradient>
+    <pattern id="g" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
+      <path d="M0 7 H14" stroke="#f0b90b" stroke-opacity="0.05" stroke-width="1"/>
+    </pattern>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffe9a8"/><stop offset="0.5" stop-color="#f0b90b"/><stop offset="1" stop-color="#c58d07"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="360" fill="url(#bg)"/>
+  <rect width="640" height="360" fill="url(#g)"/>
+  <clipPath id="disc"><circle cx="158" cy="180" r="128"/></clipPath>
+  <image href="LOGO" x="30" y="52" width="256" height="256" clip-path="url(#disc)"/>
+  <text x="300" y="158" font-family="Manrope" font-weight="800" font-size="50" fill="#f3f4f6" letter-spacing="-1.5">Stock</text>
+  <text x="300" y="212" font-family="Manrope" font-weight="800" font-size="50" fill="url(#gold)" letter-spacing="-1.5">Club</text>
+  <rect x="302" y="232" width="56" height="3" rx="1.5" fill="#f0b90b"/>
+  <text x="300" y="266" font-family="Manrope" font-weight="600" font-size="17" fill="#c9ced6">Trade real stocks with friends</text>
+  <text x="300" y="292" font-family="Manrope" font-weight="700" font-size="12" fill="#8b929c" letter-spacing="1.6">BNB CHAIN · BSTOCKS · ONDO</text>
+</svg>
