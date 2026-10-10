@@ -31,7 +31,20 @@ export function initWallet(projectId: string, onAccount: (address: string | unde
     up?.client?.events?.on("session_request_sent", (e: { id: number; topic: string }) => { lastRequest = { id: e.id, topic: e.topic }; });
   }).catch(() => {});
 
+  // Coming back from the wallet app: ask the relay for messages we missed while the page was paused
+  // (irn_batchFetchMessages). WalletConnect has this but never calls it; without it the "connected"
+  // answer sent while we were away sometimes never arrives and AppKit spins forever (Oct 10).
+  async function catchUp(): Promise<number> {
+    const up: any = await modal.getUniversalProvider();
+    const sub = up?.client?.core?.relayer?.subscriber;
+    if (!sub?.values?.length) return 0;
+    const r = await sub.rpcBatchFetchMessages(sub.values);
+    if (r?.messages?.length) await up.client.core.relayer.handleBatchMessageEvents(r.messages);
+    return r?.messages?.length ?? 0;
+  }
+
   return {
+    catchUp,
     open: () => modal.open(),
     requestLink: () => lastRequest
       ? `bnc://app.binance.com/cedefi/wc?requestId=${lastRequest.id}&sessionTopic=${lastRequest.topic}`
