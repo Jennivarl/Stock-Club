@@ -1,41 +1,102 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#1d2028"/>
-      <stop offset="1" stop-color="#0a0c10"/>
-    </linearGradient>
-    <radialGradient id="glow" cx="0.7" cy="0.25" r="0.8">
-      <stop offset="0" stop-color="#f0b90b" stop-opacity="0.20"/>
+    <radialGradient id="bg" cx="0.5" cy="0.42" r="0.75">
+      <stop offset="0" stop-color="#1f1a0d"/>
+      <stop offset="0.45" stop-color="#121214"/>
+      <stop offset="1" stop-color="#07080a"/>
+    </radialGradient>
+    <radialGradient id="halo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#f0b90b" stop-opacity="0.28"/>
+      <stop offset="0.6" stop-color="#f0b90b" stop-opacity="0.06"/>
       <stop offset="1" stop-color="#f0b90b" stop-opacity="0"/>
     </radialGradient>
-    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+    <!-- polished metal gold -->
+    <linearGradient id="metal" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#8a5f05"/>
+      <stop offset="0.18" stop-color="#d9a00a"/>
+      <stop offset="0.38" stop-color="#ffe9a8"/>
+      <stop offset="0.52" stop-color="#f6c63a"/>
+      <stop offset="0.78" stop-color="#c58d07"/>
+      <stop offset="1" stop-color="#6e4b04"/>
+    </linearGradient>
+    <linearGradient id="metalV" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="0.25" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="0.85" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.35"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#ffe7a3"/>
-      <stop offset="0.5" stop-color="#f0b90b"/>
-      <stop offset="1" stop-color="#c08a06"/>
+      <stop offset="0.35" stop-color="#b8860b"/>
+      <stop offset="0.6" stop-color="#f6d27a"/>
+      <stop offset="1" stop-color="#7a5605"/>
     </linearGradient>
-    <linearGradient id="gold2" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#e9b30c"/>
-      <stop offset="1" stop-color="#8f6606"/>
+    <linearGradient id="hex" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6d27a" stop-opacity="0.75"/>
+      <stop offset="1" stop-color="#b8860b" stop-opacity="0.25"/>
     </linearGradient>
-    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.18"/>
-      <stop offset="1" stop-color="#ffffff" stop-opacity="0.02"/>
-    </linearGradient>
+    <pattern id="guilloche" width="22" height="22" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
+      <path d="M0 11 H22" stroke="#f0b90b" stroke-opacity="0.045" stroke-width="1"/>
+    </pattern>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="18"/>
+    </filter>
+    <clipPath id="disc"><circle cx="512" cy="512" r="512"/></clipPath>
   </defs>
-  <rect width="512" height="512" fill="url(#bg)"/>
-  <rect width="512" height="512" fill="url(#glow)"/>
-  
-  <g transform="translate(256 256) scale(0.84) translate(-256 -256)">
-  <!-- hexagon: BNB Chain -->
-  <path d="M256 70 L417 163 L417 349 L256 442 L95 349 L95 163 Z" fill="none" stroke="#f0b90b" stroke-opacity="0.16" stroke-width="6" stroke-linejoin="round"/>
+
+  <!-- ground -->
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect width="1024" height="1024" fill="url(#guilloche)"/>
+  <circle cx="512" cy="500" r="380" fill="url(#halo)"/>
+
+  <!-- double hairline ring (sits inside Telegram's circle crop) -->
+  <circle cx="512" cy="512" r="452" fill="none" stroke="url(#ring)" stroke-width="5" opacity="0.9"/>
+  <circle cx="512" cy="512" r="434" fill="none" stroke="url(#ring)" stroke-width="1.5" opacity="0.45"/>
+  <!-- tick marks around the ring, like a watch bezel -->
+  <g stroke="#f6d27a" stroke-opacity="0.35" stroke-width="3" stroke-linecap="round">
+    <line x1="512" y1="72" x2="512" y2="92"/><line x1="512" y1="932" x2="512" y2="952"/>
+    <line x1="72" y1="512" x2="92" y2="512"/><line x1="932" y1="512" x2="952" y2="512"/>
+  </g>
+
+  <!-- hexagon (BNB Chain), double line -->
+  <path d="M512 196 L786 354 L786 670 L512 828 L238 670 L238 354 Z" fill="none" stroke="url(#hex)" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M512 222 L763 367 L763 657 L512 802 L261 657 L261 367 Z" fill="none" stroke="#f0b90b" stroke-opacity="0.12" stroke-width="2" stroke-linejoin="round"/>
+  <g fill="#f6d27a" opacity="0.7">
+    <circle cx="512" cy="196" r="6"/><circle cx="786" cy="354" r="5"/><circle cx="786" cy="670" r="5"/>
+    <circle cx="512" cy="828" r="6"/><circle cx="238" cy="670" r="5"/><circle cx="238" cy="354" r="5"/>
+  </g>
+
+  <!-- soft glow behind the candles -->
+  <g filter="url(#glow)" opacity="0.55">
+    <rect x="350" y="530" width="76" height="130" rx="18" fill="#f0b90b"/>
+    <rect x="474" y="448" width="76" height="170" rx="18" fill="#f0b90b"/>
+    <rect x="598" y="352" width="76" height="220" rx="18" fill="#f0b90b"/>
+  </g>
+
   <!-- three candles = three friends, rising together -->
   <g stroke-linecap="round">
-    <line x1="171" y1="246" x2="171" y2="372" stroke="#b78507" stroke-width="8"/>
-    <rect x="145" y="270" width="52" height="82" rx="12" fill="url(#gold2)"/>
-    <line x1="256" y1="190" x2="256" y2="350" stroke="#c99307" stroke-width="8"/>
-    <rect x="230" y="212" width="52" height="112" rx="12" fill="url(#gold2)"/>
-    <line x1="341" y1="128" x2="341" y2="324" stroke="#f0b90b" stroke-width="8"/>
-    <rect x="315" y="150" width="52" height="146" rx="12" fill="url(#gold)"/>
+    <line x1="388" y1="494" x2="388" y2="700" stroke="#d9a417" stroke-width="10"/>
+    <rect x="350" y="530" width="76" height="130" rx="16" fill="url(#metal)"/>
+    <rect x="350" y="530" width="76" height="130" rx="16" fill="url(#metalV)"/>
+    <rect x="350.5" y="530.5" width="75" height="129" rx="15.5" fill="none" stroke="#fff3c4" stroke-opacity="0.35"/>
+
+    <line x1="512" y1="410" x2="512" y2="660" stroke="#d9a417" stroke-width="10"/>
+    <rect x="474" y="448" width="76" height="170" rx="16" fill="url(#metal)"/>
+    <rect x="474" y="448" width="76" height="170" rx="16" fill="url(#metalV)"/>
+    <rect x="474.5" y="448.5" width="75" height="169" rx="15.5" fill="none" stroke="#fff3c4" stroke-opacity="0.35"/>
+
+    <line x1="636" y1="306" x2="636" y2="620" stroke="#d9a417" stroke-width="10"/>
+    <rect x="598" y="352" width="76" height="220" rx="16" fill="url(#metal)"/>
+    <rect x="598" y="352" width="76" height="220" rx="16" fill="url(#metalV)"/>
+    <rect x="598.5" y="352.5" width="75" height="219" rx="15.5" fill="none" stroke="#fff3c4" stroke-opacity="0.45"/>
   </g>
+
+  <!-- sparkle on the leading candle -->
+  <g transform="translate(636 284)">
+    <path d="M0 -34 C 4 -8, 8 -4, 34 0 C 8 4, 4 8, 0 34 C -4 8, -8 4, -34 0 C -8 -4, -4 -8, 0 -34 Z" fill="#fff6d6"/>
+    <circle r="10" fill="#ffffff" opacity="0.9"/>
   </g>
+
+  <!-- floor line with reflection fade -->
+  <path d="M330 720 H694" stroke="#c99a2e" stroke-width="3" stroke-linecap="round" opacity="0.55"/>
 </svg>
