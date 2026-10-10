@@ -59,7 +59,7 @@ bot.command(["start", "help"], async (ctx) => {
   // Deep link to a Buy button: t.me/<bot>?start=buy_<token> (used when we couldn't DM first)
   if (ctx.chat?.type === "private" && ctx.match.startsWith("buy_")) {
     const o = getTapOrder(ctx.match.slice(4));
-    if (!o || o.telegram_user_id !== ctx.from?.id) return ctx.reply("This Buy link isn't for you or has expired.");
+    if (!o || o.telegram_user_id !== ctx.from?.id) return ctx.reply("This link isn't for you or has expired.");
     const sell = o.side === "sell";
     if (o.status !== "pending") return ctx.reply(`This ${sell ? "sale" : "buy"} is already ${o.status}.`);
     const url = `${WEB_URL}/buy?t=${ctx.match.slice(4)}`;

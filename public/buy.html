@@ -170,7 +170,7 @@ async function load() {
       $("title").textContent = `Buy $${order.amount} of ${order.ticker}`;
       $("summary").textContent = `Your club voted yes. This buys it with USDT (${order.platform === "bstock" ? "bStocks" : "Ondo"}), in your own wallet.`;
     }
-    if (order.status === "expired") { step("connect", "fail"); return screen("This Buy link has expired.", "Buy links last 2 hours after the vote."); }
+    if (order.status === "expired") { step("connect", "fail"); return screen(`This ${sell ? "Sell" : "Buy"} link has expired.`, `${sell ? "Sell" : "Buy"} links last 2 hours after the vote. Start a new vote in the group.`); }
     if (order.status !== "pending") return doneScreen(order);
     step("connect", "active");
     screen(`Connect the wallet that holds your ${sell ? order.ticker : "USDT"} and a little BNB (BNB Smart Chain).`, "",

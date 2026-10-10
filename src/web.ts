@@ -42,7 +42,7 @@ export function startWeb(api: Api) {
       }
 
       const order = getTapOrder(String(url.searchParams.get("t") ?? ""));
-      if (url.pathname.startsWith("/api/") && !order) return send(res, 404, { error: "This Buy link isn't valid." });
+      if (url.pathname.startsWith("/api/") && !order) return send(res, 404, { error: "This link isn't valid." });
 
       if (req.method === "GET" && url.pathname === "/api/order") {
         return send(res, 200, {
