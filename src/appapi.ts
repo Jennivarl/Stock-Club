@@ -118,6 +118,13 @@ export async function handleApp(api: Api, req: http.IncomingMessage, url: URL, s
     send(200, chart(t, Math.min(14, Number(url.searchParams.get("days") ?? 7)))); return true;
   }
 
+  if (req.method === "GET" && url.pathname === "/api/app/sparks") {
+    // Last ~48 h of on-chain prices per stock, for the small charts in the list.
+    const out: Record<string, number[]> = {};
+    for (const t of WATCH) out[t] = ((chart(t, 2) as any).points as { t: number; onchain: number }[]).filter((p) => p.t > Date.now() - 48 * 3600_000).map((p) => p.onchain);
+    send(200, out); return true;
+  }
+
   const user = userFromInitData(String(req.headers["x-init-data"] ?? ""));
   if (!user) { send(401, { error: "Open this from Telegram." }); return true; }
 

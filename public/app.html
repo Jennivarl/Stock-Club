@@ -4,120 +4,191 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Stock Club</title>
+<link rel="icon" href="/assets/logo-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 <style>
   :root {
-    --bg: #0b0e11; --card: #161a1e; --card2: #1e2329; --fg: #eaecef; --muted: #848e9c; --line: #2b3139;
-    --accent: #f0b90b; --up: #0ecb81; --down: #f6465d; --blue: #3b82f6;
+    --bg: #0a0c10; --bg2: #0f1217; --card: #14181e; --card2: #1b2028; --line: #232933; --line2: #2c3440;
+    --fg: #eef0f3; --fg2: #b9c0ca; --muted: #7d8794;
+    --gold: #f0b90b; --gold2: #ffe7a3; --up: #16c784; --down: #f04d63; --blue: #5b8def;
+    --r: 16px;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.45 -apple-system, system-ui, Segoe UI, Roboto, sans-serif; }
-  body { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: Manrope, -apple-system, system-ui, sans-serif; font-size: 15px; line-height: 1.45; }
+  body { padding-bottom: calc(78px + env(safe-area-inset-bottom)); -webkit-font-smoothing: antialiased; }
+  .num { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
   .wrap { padding: 14px 16px; max-width: 560px; margin: 0 auto; }
-  h1 { font-size: 24px; margin: 4px 0 2px; } h2 { font-size: 18px; margin: 18px 0 8px; } h3 { font-size: 16px; margin: 0 0 6px; }
+  h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.03em; margin: 2px 0; }
+  h2 { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 22px 2px 10px; }
+  h3 { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 4px; }
+  p { margin: 6px 0; }
   .muted { color: var(--muted); font-size: 13px; }
-  .card { background: var(--card); border-radius: 14px; padding: 14px; margin: 10px 0; }
-  .row { display: flex; align-items: center; gap: 10px; }
-  .between { justify-content: space-between; }
-  .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 4px 9px; border-radius: 999px; background: var(--card2); color: var(--muted); }
-  .pill.open { color: var(--up); } .pill.closed { color: var(--down); } .pill.gold { color: var(--accent); }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-  .up { color: var(--up); } .down { color: var(--down); }
-  button { font: inherit; border: 0; cursor: pointer; }
-  .btn { width: 100%; padding: 14px; border-radius: 12px; font-weight: 700; font-size: 16px; background: var(--accent); color: #111; margin-top: 8px; }
-  .btn.ghost { background: var(--card2); color: var(--fg); }
-  .btn.sell { background: var(--down); color: #fff; } .btn.buy { background: var(--up); color: #062; }
-  .btn:disabled { opacity: .5; }
-  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
-  .chip { padding: 8px 14px; border-radius: 10px; background: var(--card2); color: var(--fg); font-weight: 600; }
-  .chip.on { background: var(--accent); color: #111; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; margin: 10px 0; }
+  .row { display: flex; align-items: center; gap: 10px; } .between { justify-content: space-between; } .col { display: flex; flex-direction: column; }
+  .ic { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .ic.sm { width: 16px; height: 16px; } .ic.lg { width: 24px; height: 24px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 999px; background: var(--card2); color: var(--fg2); border: 1px solid var(--line); }
+  .pill.open { color: var(--up); } .pill.closed { color: var(--down); } .pill.gold { color: var(--gold); }
+  .live { width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 0 currentColor; animation: pulse 2s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 60%, transparent); } 70% { box-shadow: 0 0 0 7px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+  .up { color: var(--up); } .down { color: var(--down); } .gold { color: var(--gold); }
+  button { font: inherit; border: 0; cursor: pointer; color: inherit; }
+  .btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px; border-radius: 14px; font-weight: 800; font-size: 16px; background: linear-gradient(180deg, #f6c938, #e5ad06); color: #15120a; margin-top: 10px; box-shadow: 0 8px 24px -10px rgba(240,185,11,.55); }
+  .btn.ghost { background: var(--card2); color: var(--fg); box-shadow: none; border: 1px solid var(--line2); }
+  .btn.buy { background: linear-gradient(180deg, #1fd796, #12b072); color: #04170e; box-shadow: 0 8px 24px -12px rgba(22,199,132,.6); }
+  .btn.sell { background: linear-gradient(180deg, #f6687b, #e23b53); color: #fff; box-shadow: 0 8px 24px -12px rgba(240,77,99,.6); }
+  .btn:disabled { opacity: .45; box-shadow: none; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { padding: 8px 14px; border-radius: 10px; background: var(--card2); border: 1px solid var(--line); font-weight: 700; font-size: 14px; color: var(--fg2); }
+  .chip.on { background: rgba(240,185,11,.12); border-color: var(--gold); color: var(--gold); }
+  /* header */
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand img { width: 34px; height: 34px; border-radius: 10px; }
+  .brand b { font-size: 17px; font-weight: 800; letter-spacing: -0.02em; }
+  /* hero */
+  .hero { position: relative; overflow: hidden; background: radial-gradient(120% 140% at 100% 0%, rgba(240,185,11,.16), transparent 55%), var(--card); }
+  .hero .k { font-size: 12px; color: var(--muted); font-weight: 600; } .hero .v { font-size: 20px; font-weight: 800; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
+  .stat { background: rgba(255,255,255,.03); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
   /* stock list */
-  .stock { display: flex; align-items: center; gap: 12px; padding: 12px 2px; border-bottom: 1px solid var(--line); }
+  .stock { display: grid; grid-template-columns: 40px 1fr 74px 88px; align-items: center; gap: 10px; padding: 12px 4px; border-bottom: 1px solid var(--line); }
   .stock:last-child { border-bottom: 0; }
-  .logo { width: 38px; height: 38px; border-radius: 50%; background: var(--card2); display: grid; place-items: center; font-weight: 800; font-size: 12px; color: var(--accent); flex: none; }
-  .stock .mid { flex: 1; min-width: 0; } .stock .name { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .stock .right { text-align: right; } .price { font-weight: 700; font-variant-numeric: tabular-nums; }
-  .chg { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .gap { font-size: 11px; padding: 2px 6px; border-radius: 6px; background: var(--card2); color: var(--muted); }
+  .mono { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-weight: 800; font-size: 11px; letter-spacing: .02em; }
+  .stock .name { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stock .right { text-align: right; } .price { font-weight: 800; font-size: 15px; }
+  .chg { font-size: 12px; font-weight: 700; } .gaptag { font-size: 11px; font-weight: 700; color: var(--muted); }
   /* tabs */
-  .tabs { position: fixed; left: 0; right: 0; bottom: 0; display: flex; background: #0f1215; border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); z-index: 5; }
-  .tab { flex: 1; padding: 9px 0 8px; text-align: center; color: var(--muted); font-size: 11px; font-weight: 600; background: none; }
-  .tab .i { font-size: 20px; display: block; line-height: 1.2; }
-  .tab.on { color: var(--accent); }
-  .view { display: none; } .view.on { display: block; }
-  /* sheet */
+  .tabs { position: fixed; left: 0; right: 0; bottom: 0; display: flex; background: rgba(10,12,16,.92); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); z-index: 5; }
+  .tab { flex: 1; padding: 10px 0 9px; display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--muted); font-size: 11px; font-weight: 700; background: none; }
+  .tab.on { color: var(--gold); }
+  .view { display: none; } .view.on { display: block; animation: fade .25s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  /* stock sheet */
   .sheet { position: fixed; inset: 0; background: var(--bg); z-index: 10; overflow-y: auto; display: none; padding-bottom: 30px; }
-  .sheet.on { display: block; }
-  .back { background: none; color: var(--accent); font-weight: 600; padding: 6px 0; }
-  .big { font-size: 34px; font-weight: 800; font-variant-numeric: tabular-nums; }
-  svg text { fill: var(--muted); font-size: 10px; }
-  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); }
-  .sw { display: inline-block; width: 12px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; } td { padding: 6px 0; } td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+  .sheet.on { display: block; animation: slidein .25s ease; }
+  @keyframes slidein { from { transform: translateX(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .back { display: inline-flex; align-items: center; gap: 4px; background: none; color: var(--gold); font-weight: 700; padding: 6px 0; }
+  .bigprice { font-size: 38px; font-weight: 800; letter-spacing: -0.03em; }
+  .seg { display: inline-flex; background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 3px; }
+  .seg button { padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 13px; color: var(--muted); background: none; }
+  .seg button.on { background: var(--card); color: var(--fg); }
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); font-weight: 600; }
+  .sw { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; } td { padding: 9px 0; border-bottom: 1px solid var(--line); } tr:last-child td { border-bottom: 0; } td:last-child { text-align: right; }
+  .callout { display: flex; gap: 12px; align-items: flex-start; background: rgba(240,185,11,.07); border: 1px solid rgba(240,185,11,.22); border-radius: 14px; padding: 12px 14px; }
+  .callout .ic { color: var(--gold); margin-top: 2px; }
   /* onboarding */
-  .ob { position: fixed; inset: 0; background: radial-gradient(120% 80% at 50% 0%, #2a2410 0%, var(--bg) 60%); z-index: 20; display: none; flex-direction: column; padding: 28px 22px calc(22px + env(safe-area-inset-bottom)); }
+  .ob { position: fixed; inset: 0; z-index: 20; display: none; flex-direction: column; background: radial-gradient(130% 70% at 50% -10%, rgba(240,185,11,.16), transparent 60%), var(--bg); padding: 18px 22px calc(18px + env(safe-area-inset-bottom)); }
   .ob.on { display: flex; }
-  .ob .art { font-size: 64px; margin: 30px 0 12px; }
-  .ob h1 { font-size: 28px; line-height: 1.15; }
-  .ob p { color: #c7ccd3; font-size: 16px; }
-  .ob .grow { flex: 1; }
-  .dots { display: flex; gap: 6px; justify-content: center; margin: 10px 0; } .dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--line); } .dots i.on { background: var(--accent); width: 20px; border-radius: 4px; }
+  .ob .top { display: flex; justify-content: space-between; align-items: center; }
+  .ob .stage { flex: 1; overflow: hidden; position: relative; touch-action: pan-y; }
+  .ob .track { display: flex; height: 100%; transition: transform .35s cubic-bezier(.2,.8,.2,1); }
+  .ob .slide { flex: 0 0 100%; display: flex; flex-direction: column; justify-content: center; padding: 0 2px; overflow-y: auto; }
+  .ob .slide h1 { font-size: 30px; line-height: 1.12; margin-top: 18px; }
+  .ob .slide p { color: var(--fg2); font-size: 16px; }
+  .diagram { width: 100%; max-height: 42vh; }
+  .dots { display: flex; gap: 6px; justify-content: center; margin: 12px 0 4px; } .dots i { width: 7px; height: 7px; border-radius: 4px; background: var(--line2); transition: all .3s; } .dots i.on { background: var(--gold); width: 22px; }
+  .skip { background: none; color: var(--muted); font-weight: 700; padding: 6px 2px; }
   .check { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--line); }
   .check:last-child { border-bottom: 0; }
-  .tick { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; flex: none; font-size: 14px; font-weight: 800; background: var(--card2); color: var(--muted); }
-  .tick.ok { background: var(--up); color: #062; } .tick.no { background: var(--card2); color: var(--accent); }
-  input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--card2); color: var(--fg); font: inherit; font-size: 14px; }
-  .toast { position: fixed; left: 16px; right: 16px; bottom: calc(84px + env(safe-area-inset-bottom)); background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; z-index: 30; display: none; }
-  .toast.on { display: block; }
+  .tick { width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; flex: none; background: var(--card2); color: var(--muted); border: 1px solid var(--line); }
+  .tick.ok { background: rgba(22,199,132,.14); color: var(--up); border-color: rgba(22,199,132,.35); }
+  input { width: 100%; padding: 13px; border-radius: 12px; border: 1px solid var(--line2); background: var(--card2); color: var(--fg); font: inherit; font-size: 14px; margin-top: 8px; }
+  input:focus { outline: none; border-color: var(--gold); }
+  .toast { position: fixed; left: 16px; right: 16px; bottom: calc(90px + env(safe-area-inset-bottom)); background: #1d232c; border: 1px solid var(--line2); border-radius: 14px; padding: 13px 15px; z-index: 30; display: none; box-shadow: 0 20px 40px -12px rgba(0,0,0,.6); }
+  .toast.on { display: flex; gap: 10px; align-items: flex-start; animation: fade .2s; }
   .skel { background: linear-gradient(90deg, var(--card) 0%, var(--card2) 50%, var(--card) 100%); background-size: 200% 100%; animation: sk 1.2s infinite; border-radius: 8px; height: 14px; }
   @keyframes sk { to { background-position: -200% 0; } }
-  .banner { background: linear-gradient(135deg, #2a2410, #161a1e); border: 1px solid #3a3012; }
-  a { color: var(--accent); }
+  .flow { display: grid; grid-template-columns: 28px 1fr; gap: 0 12px; }
+  .flow .n { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; background: var(--card2); border: 1px solid var(--line2); color: var(--gold); font-weight: 800; font-size: 13px; }
+  .flow .l { width: 2px; background: var(--line2); margin: 2px auto; height: 18px; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; color: var(--fg2); }
+  a { color: var(--gold); }
 </style>
 </head>
 <body>
 
-<!-- ===== Onboarding (first time) ===== -->
+<!-- Icon set (line icons, one style everywhere) -->
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-markets" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M8 7v3"/><rect x="6.5" y="10" width="3" height="5" rx="1"/><path d="M8 15v2"/><path d="M14 4v3"/><rect x="12.5" y="7" width="3" height="6" rx="1"/><path d="M14 13v2"/><path d="M19.5 9v2"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-bot" viewBox="0 0 24 24"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2M20 14h2M15 13v2M9 13v2"/></symbol>
+  <symbol id="i-coins" viewBox="0 0 24 24"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/></symbol>
+  <symbol id="i-fuel" viewBox="0 0 24 24"><path d="M3 22h12M4 9h10"/><path d="M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18"/><path d="M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 4 0V9.83a2 2 0 0 0-.59-1.42L18 5"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></symbol>
+  <symbol id="i-vote" viewBox="0 0 24 24"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></symbol>
+  <symbol id="i-gap" viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M3 21h18" opacity=".5"/><path d="M17 7h4v4"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol>
+</svg>
+
+<!-- ===== Onboarding ===== -->
 <div class="ob" id="ob">
-  <div class="grow" id="obBody"></div>
+  <div class="top"><div class="brand"><img src="/assets/logo-180.png" alt="" /><b>Stock Club</b></div><button class="skip" id="obSkip">Skip</button></div>
+  <div class="stage" id="obStage"><div class="track" id="obTrack"></div></div>
   <div class="dots" id="obDots"></div>
   <button class="btn" id="obNext">Next</button>
-  <button class="btn ghost" id="obSkip">Skip</button>
 </div>
 
-<!-- ===== Home ===== -->
+<!-- ===== Markets ===== -->
 <div class="view on" id="v-home"><div class="wrap">
   <div class="row between">
-    <div><div class="muted" id="hello">Stock Club</div><h1>Markets</h1></div>
-    <span class="pill" id="wsPill"><span class="dot"></span><span id="wsText">…</span></span>
+    <div class="brand"><img src="/assets/logo-180.png" alt="" /><div class="col"><b>Stock Club</b><span class="muted" id="hello" style="font-size:12px">Tokenized stocks on BNB Chain</span></div></div>
+    <span class="pill" id="wsPill"><span class="live"></span><span id="wsText">…</span></span>
   </div>
-  <div class="card banner" id="gapBanner">
-    <h3>🌙 Wall Street is closed. On-chain isn't.</h3>
-    <div class="muted">Tokenized stocks keep trading 24/7. When the market is shut, their price can drift away from the last real price. We show that <b>gap</b> on every stock, and your club can set a limit.</div>
+
+  <div class="card hero" id="hero">
+    <div class="row" style="gap:12px"><svg class="ic lg gold"><use href="#i-moon" id="heroIcon"/></svg>
+      <div><h3 id="heroTitle">Wall Street is closed. On-chain isn't.</h3>
+      <div class="muted" id="heroText">Tokenized stocks trade 24/7. While the market sleeps, their price can drift from the last real price. That's the <b style="color:var(--fg)">gap</b>.</div></div></div>
+    <div class="stats">
+      <div class="stat"><div class="k">Biggest gap</div><div class="v num" id="stGap">–</div><div class="muted" id="stGapT" style="font-size:11px">&nbsp;</div></div>
+      <div class="stat"><div class="k">Trading now</div><div class="v num" id="stOpen">–</div><div class="muted" style="font-size:11px">of 15 stocks</div></div>
+      <div class="stat"><div class="k" id="stNextK">Next open</div><div class="v num" id="stNext">–</div><div class="muted" style="font-size:11px">New York time</div></div>
+    </div>
   </div>
+
   <div class="card" id="startCard" style="display:none">
-    <div class="row between"><h3>Get started</h3><span class="pill gold" id="startCount"></span></div>
-    <div class="muted">A few steps to your first trade with friends.</div>
-    <button class="btn" id="startBtn">Continue setup</button>
+    <div class="row between"><div class="row"><svg class="ic gold"><use href="#i-zap"/></svg><h3 style="margin:0">Finish setting up</h3></div><span class="pill gold num" id="startCount"></span></div>
+    <div class="muted" style="margin-top:4px">A few steps to your first trade with friends.</div>
+    <button class="btn ghost" id="startBtn">Continue <svg class="ic sm"><use href="#i-next"/></svg></button>
   </div>
-  <h2>Stocks <span class="muted" style="font-weight:400">· on BNB Chain</span></h2>
-  <div class="card" id="list"><div class="skel"></div><br><div class="skel"></div><br><div class="skel"></div></div>
-  <div class="muted" style="text-align:center">On-chain prices: Binance Web3 API (bStocks, Ondo). Real prices: Finnhub.</div>
+
+  <h2>Stocks</h2>
+  <div class="card" style="padding:4px 12px" id="list"><div style="padding:14px 0"><div class="skel"></div><br><div class="skel"></div><br><div class="skel"></div></div></div>
+  <div class="muted" style="text-align:center;margin-top:8px">On-chain: Binance Web3 API (bStocks, Ondo) · Real: Finnhub · Gap = on-chain vs real</div>
 </div></div>
 
 <!-- ===== Club ===== -->
 <div class="view" id="v-club"><div class="wrap">
-  <h1>Your clubs</h1>
+  <h1>Club</h1>
   <div id="clubs"><div class="card"><div class="skel"></div></div></div>
+  <h2>How a club trade works</h2>
   <div class="card">
-    <h3>How a club trade works</h3>
-    <table>
-      <tr><td>1. Someone proposes</td><td class="muted">"Buy $10 of NVDA each"</td></tr>
-      <tr><td>2. The club votes</td><td class="muted">in the group</td></tr>
-      <tr><td>3. Rules are checked</td><td class="muted">limits, price gap</td></tr>
-      <tr><td>4. Everyone buys</td><td class="muted">in their own wallet</td></tr>
-    </table>
-    <div class="muted">Nobody holds anyone else's money. Each yes-voter buys for themselves, by tapping Buy, or automatically with Autopilot.</div>
+    <div class="flow">
+      <div class="n">1</div><div><b>Someone proposes</b><div class="muted">"Buy $10 of NVDA each", from the app or the group.</div></div>
+      <div class="l"></div><div></div>
+      <div class="n">2</div><div><b>The club votes</b><div class="muted">A poll in your Telegram group.</div></div>
+      <div class="l"></div><div></div>
+      <div class="n">3</div><div><b>Safety checks</b><div class="muted">Trade and weekly limits, and the gap vs the real price, checked again right before buying.</div></div>
+      <div class="l"></div><div></div>
+      <div class="n">4</div><div><b>Everyone trades in their own wallet</b><div class="muted">Tap Buy, or let Autopilot do it. Nobody holds anyone's money.</div></div>
+    </div>
   </div>
 </div></div>
 
@@ -129,42 +200,59 @@
 
 <!-- ===== Stock page ===== -->
 <div class="sheet" id="sheet"><div class="wrap">
-  <button class="back" id="back">‹ Markets</button>
-  <div class="row between"><div><h1 id="sTicker"></h1><div class="muted" id="sName"></div></div><div class="logo" id="sLogo"></div></div>
-  <div class="big" id="sPrice"></div>
-  <div class="row" style="gap:8px"><span class="chg" id="sChg"></span><span class="gap" id="sGap"></span></div>
-  <div class="card">
-    <div class="row between"><b>Last 7 days</b><div class="legend"><span><i class="sw" style="background:var(--accent)"></i>On-chain</span><span><i class="sw" style="background:var(--muted)"></i>Real stock</span></div></div>
-    <div id="chart" style="margin-top:8px"><div class="skel" style="height:160px"></div></div>
-    <div class="muted" id="chartNote">Shaded = Wall Street closed. Our own data, recorded every 15 minutes.</div>
+  <button class="back" id="back"><svg class="ic sm"><use href="#i-back"/></svg>Markets</button>
+  <div class="row between" style="margin-top:6px">
+    <div class="row" style="gap:12px"><div class="mono" id="sMono"></div><div><h1 id="sTicker" style="font-size:22px"></h1><div class="muted" id="sName"></div></div></div>
   </div>
-  <div class="card"><h3>Where to buy it</h3><table id="sIssuers"></table>
-    <div class="muted">Prices are per 1 real share. Stock Club picks the cheapest one that's trading.</div></div>
+  <div class="bigprice num" id="sPrice" style="margin-top:10px"></div>
+  <div class="row" style="gap:10px"><span class="chg num" id="sChg"></span><span class="pill num" id="sGap"></span></div>
+
+  <div class="card" style="padding:14px 10px 10px">
+    <div class="row between" style="padding:0 6px">
+      <div class="legend"><span><i class="sw" style="background:var(--gold)"></i>On-chain</span><span><i class="sw" style="background:#7d8794"></i>Real stock</span></div>
+      <div class="seg" id="range"><button data-d="1">1D</button><button data-d="3">3D</button><button data-d="7" class="on">7D</button></div>
+    </div>
+    <div id="chart" style="height:220px;margin-top:8px"></div>
+    <div style="padding:2px 6px 0" class="row between"><span class="muted" style="font-weight:700">Gap vs real price</span><span class="muted" style="font-size:11px">shaded = Wall Street closed</span></div>
+    <div id="gapchart" style="height:84px"></div>
+  </div>
+  <div class="callout" id="gapNote"><svg class="ic"><use href="#i-gap"/></svg><div class="muted" id="gapNoteText"></div></div>
+
+  <h2>Where to buy it</h2>
+  <div class="card"><table id="sIssuers"></table>
+    <div class="muted" style="margin-top:8px">Prices per 1 real share. Stock Club picks the cheapest issuer that's trading.</div></div>
+
+  <h2>Trade with your club</h2>
   <div class="card" id="tradeCard">
-    <h3>Trade with your club</h3>
-    <div class="muted" id="tradeClub"></div>
-    <div class="chips" id="amounts"></div>
-    <button class="btn buy" id="pBuy">Propose buy</button>
-    <button class="btn sell" id="pSell">Propose sell</button>
-    <div class="muted" style="margin-top:8px">This starts a vote in your club's group. If it passes, everyone who voted yes trades in their own wallet.</div>
+    <div class="row" style="gap:8px"><svg class="ic sm gold"><use href="#i-users"/></svg><span class="muted" id="tradeClub"></span></div>
+    <div class="chips" id="amounts" style="margin:12px 0 2px"></div>
+    <button class="btn buy" id="pBuy"></button>
+    <button class="btn sell" id="pSell">Propose: sell</button>
+    <div class="muted" style="margin-top:10px">Starts a vote in your group. If it passes, everyone who voted yes trades in their own wallet.</div>
   </div>
 </div></div>
 
 <div class="toast" id="toast"></div>
 
 <nav class="tabs">
-  <button class="tab on" data-v="home"><span class="i">📈</span>Markets</button>
-  <button class="tab" data-v="club"><span class="i">👥</span>Club</button>
-  <button class="tab" data-v="port"><span class="i">💼</span>Portfolio</button>
+  <button class="tab on" data-v="home"><svg class="ic lg"><use href="#i-markets"/></svg>Markets</button>
+  <button class="tab" data-v="club"><svg class="ic lg"><use href="#i-users"/></svg>Club</button>
+  <button class="tab" data-v="port"><svg class="ic lg"><use href="#i-wallet"/></svg>Portfolio</button>
 </nav>
 
 <script>
 const tg = window.Telegram?.WebApp; tg?.ready(); tg?.expand();
-try { tg?.setHeaderColor?.("#0b0e11"); tg?.setBackgroundColor?.("#0b0e11"); } catch {}
+try { tg?.setHeaderColor?.("#0a0c10"); tg?.setBackgroundColor?.("#0a0c10"); tg?.disableVerticalSwipes?.(); } catch {}
 const $ = (id) => document.getElementById(id);
+const icon = (name, cls = "") => `<svg class="ic ${cls}"><use href="#i-${name}"/></svg>`;
 const fmt = (n, d = 2) => n == null ? "–" : Number(n).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
-const pct = (n) => n == null ? "" : `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`;
+const pct = (n) => n == null ? "–" : `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`;
 const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
+const haptic = (k = "light") => { try { tg?.HapticFeedback?.impactOccurred(k); } catch {} };
+
+// Monogram badge colors per ticker (stable, muted, premium)
+const HUE = { NVDA: 95, TSLA: 0, AAPL: 210, MSFT: 200, META: 220, AMZN: 32, GOOGL: 140, AMD: 350, MU: 260, COIN: 225, CRCL: 190, QQQ: 45, SPY: 45, PLTR: 280, NFLX: 355 };
+function mono(t, el) { const h = HUE[t] ?? 45; const s = `background:hsl(${h} 45% 16%);color:hsl(${h} 80% 72%);border:1px solid hsl(${h} 40% 26%)`; return el ? (el.setAttribute("style", s), el.textContent = t.slice(0, 4)) : `<div class="mono" style="${s}">${t.slice(0, 4)}</div>`; }
 
 async function api(path, body) {
   const r = await fetch(`/api/app/${path}`, { method: body ? "POST" : "GET",
@@ -173,8 +261,11 @@ async function api(path, body) {
   if (!r.ok) throw new Error(j.error || `Error ${r.status}`);
   return j;
 }
-function toast(html, ms = 4000) { $("toast").innerHTML = html; $("toast").classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => $("toast").classList.remove("on"), ms); }
-function haptic(kind = "light") { try { tg?.HapticFeedback?.impactOccurred(kind); } catch {} }
+function toast(html, kind = "info", ms = 5000) {
+  const ic = kind === "ok" ? icon("check", "up") : kind === "bad" ? icon("alert", "down") : icon("info", "gold");
+  $("toast").innerHTML = `${ic}<div>${html}</div>`; $("toast").classList.add("on");
+  clearTimeout(toast.t); toast.t = setTimeout(() => $("toast").classList.remove("on"), ms);
+}
 
 // ---------- tabs ----------
 document.querySelectorAll(".tab").forEach((b) => b.onclick = () => {
@@ -184,106 +275,141 @@ document.querySelectorAll(".tab").forEach((b) => b.onclick = () => {
   if (b.dataset.v === "port") loadPortfolio();
 });
 
-// ---------- data ----------
-let me = null, market = null;
-
+// ---------- markets ----------
+let me = null, market = null, sparks = {};
+function sparkline(vals, up) {
+  if (!vals || vals.length < 2) return "";
+  const W = 74, H = 30, lo = Math.min(...vals), hi = Math.max(...vals), r = hi - lo || 1;
+  const pts = vals.map((v, i) => [i / (vals.length - 1) * W, H - 3 - (v - lo) / r * (H - 6)]);
+  const d = pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join("");
+  const c = up ? "#16c784" : "#f04d63", id = "g" + Math.random().toString(36).slice(2, 7);
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs><linearGradient id="${id}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${c}" stop-opacity=".28"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></linearGradient></defs><path d="${d}L${W},${H}L0,${H}Z" fill="url(#${id})"/><path d="${d}" fill="none" stroke="${c}" stroke-width="1.6"/></svg>`;
+}
+function nextOpen() { // next 9:30 New York on a weekday (ignores holidays)
+  const nyNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const d = new Date(nyNow); d.setHours(9, 30, 0, 0);
+  if (nyNow >= d) d.setDate(d.getDate() + 1);
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+  return d.toLocaleDateString("en-US", { weekday: "short" }) + " 9:30";
+}
 async function loadMarkets() {
   market = await api("stocks");
   const ws = market.wallStreet;
   $("wsPill").className = `pill ${ws.open ? "open" : "closed"}`;
-  $("wsText").textContent = ws.open ? "Wall Street open" : `Wall Street ${ws.label.replace("closed ", "closed · ").replace(/[()]/g, "")}`;
-  $("gapBanner").style.display = ws.open ? "none" : "";
+  $("wsText").textContent = ws.open ? "Wall Street open" : "Wall Street closed";
+  $("heroIcon").setAttribute("href", ws.open ? "#i-sun" : "#i-moon");
+  $("heroTitle").textContent = ws.open ? "Wall Street is open." : "Wall Street is closed. On-chain isn't.";
+  $("heroText").innerHTML = ws.open ? "On-chain prices follow the real ones closely while the market is open. Watch the <b style='color:var(--fg)'>gap</b> after hours." : "Tokenized stocks trade 24/7. While the market sleeps, their price can drift from the last real price. That's the <b style='color:var(--fg)'>gap</b>.";
+  const withGap = market.stocks.filter((s) => s.gapPct != null);
+  const big = withGap.sort((a, b) => Math.abs(b.gapPct) - Math.abs(a.gapPct))[0];
+  if (big) { $("stGap").textContent = pct(big.gapPct); $("stGap").className = `v num ${big.gapPct >= 0 ? "up" : "down"}`; $("stGapT").textContent = big.ticker; }
+  $("stOpen").textContent = market.stocks.filter((s) => s.tradable).length;
+  $("stNextK").textContent = ws.open ? "Closes" : "Next open"; $("stNext").textContent = ws.open ? "16:00" : nextOpen();
+  renderList();
+}
+function renderList() {
   $("list").innerHTML = market.stocks.map((s) => `
     <div class="stock" data-t="${s.ticker}">
-      <div class="logo">${s.ticker.slice(0, 4)}</div>
-      <div class="mid"><div><b>${s.ticker}</b></div><div class="name">${s.name}</div></div>
+      ${mono(s.ticker)}
+      <div style="min-width:0"><div><b>${s.ticker}</b></div><div class="name">${s.name}</div></div>
+      <div>${sparkline(sparks[s.ticker], (s.changePct ?? 0) >= 0)}</div>
       <div class="right">
-        <div class="price">$${fmt(s.onchain)}</div>
-        <div class="row" style="justify-content:flex-end;gap:6px">
-          ${s.gapPct != null ? `<span class="gap" title="vs real price">gap ${pct(s.gapPct)}</span>` : ""}
-          <span class="chg ${s.changePct >= 0 ? "up" : "down"}">${pct(s.changePct)}</span>
-        </div>
+        <div class="price num">$${fmt(s.onchain)}</div>
+        <div class="chg num ${(s.changePct ?? 0) >= 0 ? "up" : "down"}">${pct(s.changePct)}</div>
+        <div class="gaptag num">gap ${pct(s.gapPct)}</div>
       </div>
     </div>`).join("");
   document.querySelectorAll(".stock").forEach((el) => el.onclick = () => openStock(el.dataset.t));
 }
+async function loadSparks() { try { sparks = await fetch("/api/app/sparks").then((r) => r.json()); if (market) renderList(); } catch {} }
 
+// ---------- me / club ----------
 async function loadMe() {
   try { me = await api("me"); } catch { me = null; }
-  $("hello").textContent = me ? `Hi ${me.user.name} 👋` : "Stock Club";
-  renderClubs();
-  renderStart();
+  if (me) $("hello").textContent = `Hi ${me.user.name}`;
+  renderClubs(); renderStart();
 }
-
+const clubHowTo = () => `<div class="flow" style="margin-top:8px">
+  <div class="n">1</div><div class="muted" style="padding-top:4px">Make a Telegram group with your friends</div><div class="l"></div><div></div>
+  <div class="n">2</div><div class="muted" style="padding-top:4px">Add <b style="color:var(--fg)">@${me?.bot ?? "the Stock Club bot"}</b> to the group</div><div class="l"></div><div></div>
+  <div class="n">3</div><div class="muted" style="padding-top:4px">Send <code>/club start</code>, then friends send <code>/join</code></div></div>`;
 function renderClubs() {
   if (!me) { $("clubs").innerHTML = `<div class="card muted">Open this app from Telegram to see your clubs.</div>`; return; }
-  if (!me.clubs.length) {
-    $("clubs").innerHTML = `<div class="card"><h3>No club yet</h3>${clubHowTo()}</div>`; return;
-  }
+  if (!me.clubs.length) { $("clubs").innerHTML = `<div class="card"><h3>No club yet</h3>${clubHowTo()}</div>`; return; }
   $("clubs").innerHTML = me.clubs.map((c) => `
     <div class="card">
-      <div class="row between"><h3>${c.name}</h3><span class="pill">${c.members} member${c.members === 1 ? "" : "s"}</span></div>
-      <table>
-        <tr><td>Max per trade</td><td>$${c.rules.max_per_trade}</td></tr>
-        <tr><td>Max per week (each)</td><td>$${c.rules.max_per_week}</td></tr>
-        <tr><td>Vote passes at</td><td>${c.rules.vote_pass_percent}% yes</td></tr>
-        <tr><td>Max gap vs real price</td><td>${c.rules.max_gap_percent}%</td></tr>
-        <tr><td>Your Autopilot</td><td>${c.autopilot ? "🤖 On" : "Off (you tap Buy)"}</td></tr>
+      <div class="row between"><div class="row">${icon("users", "gold")}<h3 style="margin:0">${c.name}</h3></div><span class="pill num">${c.members} member${c.members === 1 ? "" : "s"}</span></div>
+      <table style="margin-top:6px">
+        <tr><td class="muted">Max per trade</td><td class="num">$${c.rules.max_per_trade}</td></tr>
+        <tr><td class="muted">Max per week (each)</td><td class="num">$${c.rules.max_per_week}</td></tr>
+        <tr><td class="muted">Vote passes at</td><td class="num">${c.rules.vote_pass_percent}% yes</td></tr>
+        <tr><td class="muted">Max gap vs real price</td><td class="num">${c.rules.max_gap_percent}%</td></tr>
+        <tr><td class="muted">Your Autopilot</td><td>${c.autopilot ? `<span class="pill open">${icon("bot", "sm")}On</span>` : `<span class="pill">Off · you tap Buy</span>`}</td></tr>
       </table>
-      ${c.rules.paused ? `<div class="pill closed" style="margin-top:6px">⛔ Paused</div>` : ""}
+      ${c.rules.paused ? `<div class="pill closed" style="margin-top:8px">${icon("pause", "sm")}Paused</div>` : ""}
     </div>`).join("");
 }
-const clubHowTo = () => `<ol class="muted" style="padding-left:18px;margin:6px 0">
-  <li>Make a Telegram group with your friends</li>
-  <li>Add <b>@${me?.bot ?? "the Stock Club bot"}</b> to the group</li>
-  <li>Send <code>/club start</code>, then friends send <code>/join</code></li></ol>`;
 
+// ---------- portfolio ----------
 async function loadPortfolio() {
   const w = store.get("wallet") || me?.wallet;
-  if (!w) { $("port").innerHTML = `<div class="card"><h3>Add your wallet</h3><div class="muted">Paste your Binance Wallet address (BNB Smart Chain). We only read balances.</div><input id="pw" placeholder="0x…" /><button class="btn" id="pwGo">Show my portfolio</button></div>`;
-    $("pwGo").onclick = () => { const v = $("pw").value.trim(); if (/^0x[0-9a-fA-F]{40}$/.test(v)) { store.set("wallet", v); loadPortfolio(); } else toast("That doesn't look like a wallet address."); };
-    return; }
+  if (!w) {
+    $("port").innerHTML = `<div class="card"><div class="row">${icon("wallet", "gold")}<h3 style="margin:0">Add your wallet</h3></div><div class="muted" style="margin-top:6px">Paste your Binance Wallet address (BNB Smart Chain). We only read balances.</div><input id="pw" placeholder="0x…" /><button class="btn" id="pwGo">Show my portfolio</button></div>`;
+    $("pwGo").onclick = () => { const v = $("pw").value.trim(); if (/^0x[0-9a-fA-F]{40}$/.test(v)) { store.set("wallet", v); loadPortfolio(); } else toast("That doesn't look like a wallet address.", "bad"); };
+    return;
+  }
   $("port").innerHTML = `<div class="card"><div class="skel"></div><br><div class="skel"></div></div>`;
   try {
     const p = await api(`portfolio?wallet=${w}`);
+    const stocksVal = p.holdings.reduce((s, h) => s + h.value, 0);
+    const parts = [{ k: "Stocks", v: stocksVal, c: "#f0b90b" }, { k: "USDT", v: p.usdt, c: "#16c784" }];
+    const tot = parts.reduce((s, x) => s + x.v, 0) || 1;
     $("port").innerHTML = `
-      <div class="card">
-        <div class="muted">Total value</div><div class="big">$${fmt(p.total)}</div>
-        <div class="muted">Wallet <code>${w.slice(0, 6)}…${w.slice(-4)}</code> · BNB Smart Chain</div>
+      <div class="card hero">
+        <div class="muted">Total value</div><div class="bigprice num">$${fmt(p.total)}</div>
+        <div style="display:flex;height:8px;border-radius:6px;overflow:hidden;margin:12px 0 8px;background:var(--card2)">${parts.map((x) => `<div style="width:${x.v / tot * 100}%;background:${x.c}"></div>`).join("")}</div>
+        <div class="row" style="gap:16px">${parts.map((x) => `<span class="muted"><i class="sw" style="background:${x.c}"></i>${x.k} <b class="num" style="color:var(--fg)">$${fmt(x.v)}</b></span>`).join("")}</div>
+        <div class="muted" style="margin-top:10px">${icon("wallet", "sm")} <code>${w.slice(0, 6)}…${w.slice(-4)}</code> · BNB Smart Chain</div>
       </div>
-      <div class="card"><h3>Stocks</h3>${p.holdings.length ? `<table>${p.holdings.map((h) => `<tr><td><b>${h.ticker}</b> <span class="muted">${h.symbol} · ${h.issuer}</span><br><span class="muted">${fmt(h.qty, 6)} shares</span></td><td>$${fmt(h.value)}</td></tr>`).join("")}</table>` : `<div class="muted">No stocks yet. Propose your first one from Markets.</div>`}</div>
-      <div class="card"><h3>Cash</h3><table><tr><td>USDT</td><td>$${fmt(p.usdt)}</td></tr><tr><td>BNB <span class="muted">(for network fees)</span></td><td>${fmt(p.bnb, 5)}</td></tr></table>
-        ${p.bnb < 0.0003 ? `<div class="muted" style="color:var(--accent)">⚠️ Add a little BNB (about $0.50) to pay network fees.</div>` : ""}</div>
+      <h2>Stocks</h2>
+      <div class="card" style="padding:4px 12px">${p.holdings.length ? p.holdings.map((h) => `<div class="stock" style="grid-template-columns:40px 1fr auto">${mono(h.ticker)}<div><b>${h.ticker}</b><div class="name">${h.symbol} · ${h.issuer} · <span class="num">${fmt(h.qty, 6)}</span> sh</div></div><div class="right price num">$${fmt(h.value)}</div></div>`).join("") : `<div class="muted" style="padding:14px 0">No stocks yet. Propose your first one from Markets.</div>`}</div>
+      <h2>Cash</h2>
+      <div class="card"><table><tr><td>${icon("coins", "sm gold")} USDT</td><td class="num">$${fmt(p.usdt)}</td></tr><tr><td>${icon("fuel", "sm gold")} BNB <span class="muted">· network fees</span></td><td class="num">${fmt(p.bnb, 5)}</td></tr></table>
+        ${p.bnb < 0.0003 ? `<div class="callout" style="margin-top:10px">${icon("alert")}<div class="muted">Add a little BNB (about $0.50) to pay network fees.</div></div>` : ""}</div>
       <button class="btn ghost" id="pwChange">Use a different wallet</button>`;
     $("pwChange").onclick = () => { store.set("wallet", ""); if (me) me.wallet = null; loadPortfolio(); };
   } catch (e) { $("port").innerHTML = `<div class="card muted">${e.message}</div>`; }
 }
 
 // ---------- stock page ----------
-let current = null, amount = 10;
+let current = null, amount = 10, days = 7, charts = [];
 function openStock(t) {
   haptic();
   const s = market.stocks.find((x) => x.ticker === t); current = s;
-  $("sTicker").textContent = s.ticker; $("sName").textContent = s.name; $("sLogo").textContent = s.ticker.slice(0, 4);
+  mono(s.ticker, $("sMono")); $("sTicker").textContent = s.ticker; $("sName").textContent = s.name;
   $("sPrice").textContent = `$${fmt(s.onchain)}`;
-  $("sChg").className = `chg ${s.changePct >= 0 ? "up" : "down"}`; $("sChg").textContent = s.changePct != null ? `${pct(s.changePct)} vs last close` : "";
-  $("sGap").textContent = s.gapPct != null ? `gap vs real $${fmt(s.real.price)}: ${pct(s.gapPct)}` : "";
-  $("sIssuers").innerHTML = s.issuers.map((i) => `<tr><td>${i.name} <span class="muted">${i.symbol}</span> ${i.open ? "" : `<span class="pill closed">paused</span>`}</td><td>$${fmt(i.price)}</td></tr>`).join("")
-    + (s.real ? `<tr><td class="muted">Real stock (last)</td><td class="muted">$${fmt(s.real.price)}</td></tr>` : "");
-  const club = me?.clubs?.[0];
-  $("tradeClub").textContent = club ? `Club: ${club.name} · max $${club.rules.max_per_trade} per trade` : "Join or start a club to trade together.";
+  $("sChg").className = `chg num ${(s.changePct ?? 0) >= 0 ? "up" : "down"}`; $("sChg").textContent = s.changePct != null ? `${pct(s.changePct)} vs last close` : "";
+  $("sGap").innerHTML = s.gapPct != null ? `${icon("gap", "sm")} gap ${pct(s.gapPct)} vs real $${fmt(s.real.price)}` : "";
+  $("sIssuers").innerHTML = s.issuers.map((i) => `<tr><td><b>${i.name}</b> <span class="muted">${i.symbol}</span> ${i.open ? "" : `<span class="pill closed">${icon("pause", "sm")}paused</span>`}</td><td class="num">$${fmt(i.price)}</td></tr>`).join("")
+    + (s.real ? `<tr><td class="muted">Real stock · last price</td><td class="muted num">$${fmt(s.real.price)}</td></tr>` : "");
+  renderTrade();
+  $("sheet").classList.add("on"); $("sheet").scrollTop = 0; tg?.BackButton?.show();
+  drawCharts();
+}
+function renderTrade() {
+  const club = me?.clubs?.[0], s = current;
+  $("tradeClub").textContent = club ? `${club.name} · max $${club.rules.max_per_trade} per trade` : "Join or start a club to trade together.";
   const max = club?.rules.max_per_trade ?? 20;
   const opts = [1, 5, 10, 20, 50].filter((a) => a <= max); if (!opts.includes(amount)) amount = opts.at(-1) ?? 1;
-  $("amounts").innerHTML = opts.map((a) => `<button class="chip ${a === amount ? "on" : ""}" data-a="${a}">$${a}</button>`).join("");
-  document.querySelectorAll("#amounts .chip").forEach((c) => c.onclick = () => { amount = Number(c.dataset.a); haptic(); openStock(t); });
-  $("pBuy").textContent = `Propose: buy $${amount} each`;
+  $("amounts").innerHTML = opts.map((a) => `<button class="chip num ${a === amount ? "on" : ""}" data-a="${a}">$${a}</button>`).join("");
+  document.querySelectorAll("#amounts .chip").forEach((c) => c.onclick = () => { amount = Number(c.dataset.a); haptic(); renderTrade(); });
+  $("pBuy").innerHTML = `${icon("vote")}Propose: buy $${amount} each`;
+  $("pSell").innerHTML = `${icon("vote")}Propose: sell`;
   $("pBuy").disabled = $("pSell").disabled = !club || !s.tradable;
-  $("sheet").classList.add("on"); $("sheet").scrollTop = 0;
-  tg?.BackButton?.show();
-  drawChart(t);
 }
 function closeStock() { $("sheet").classList.remove("on"); tg?.BackButton?.hide(); }
 $("back").onclick = closeStock; tg?.BackButton?.onClick(closeStock);
+document.querySelectorAll("#range button").forEach((b) => b.onclick = () => { days = Number(b.dataset.d); document.querySelectorAll("#range button").forEach((x) => x.classList.toggle("on", x === b)); haptic(); drawCharts(); });
 
 async function propose(side) {
   const club = me?.clubs?.[0]; if (!club || !current) return;
@@ -291,97 +417,138 @@ async function propose(side) {
   try {
     const r = await api("propose", { chatId: club.chatId, ticker: current.ticker, amount, side });
     tg?.HapticFeedback?.notificationOccurred("success");
-    toast(`✅ Vote started in <b>${r.club}</b>. Open the group and vote. If it passes, I'll send you a ${side === "sell" ? "Sell" : "Buy"} button.`, 7000);
+    toast(`Vote started in <b>${r.club}</b>. Open the group and vote. If it passes, I'll send you a ${side === "sell" ? "Sell" : "Buy"} button.`, "ok", 7000);
     store.set("didTrade", "1");
-  } catch (e) { toast(`⛔ ${e.message}`, 6000); }
+  } catch (e) { toast(e.message, "bad", 7000); }
   btn.disabled = false;
 }
 $("pBuy").onclick = () => propose("buy"); $("pSell").onclick = () => propose("sell");
 
-// SVG chart: on-chain vs real price, Wall Street closed hours shaded.
-async function drawChart(t) {
-  $("chart").innerHTML = `<div class="skel" style="height:160px"></div>`;
-  const { points } = await fetch(`/api/app/chart?ticker=${t}&days=7`).then((r) => r.json());
-  if (!points?.length) { $("chart").innerHTML = `<div class="muted">No history yet.</div>`; return; }
-  const W = 340, H = 170, P = { l: 4, r: 40, t: 8, b: 18 };
-  const xs = points.map((p) => p.t), all = points.flatMap((p) => [p.onchain, p.real]);
-  const x0 = Math.min(...xs), x1 = Math.max(...xs), lo = Math.min(...all), hi = Math.max(...all), pad = (hi - lo) * 0.08 || 1;
-  const X = (v) => P.l + (v - x0) / (x1 - x0 || 1) * (W - P.l - P.r);
-  const Y = (v) => P.t + (1 - (v - (lo - pad)) / ((hi + pad) - (lo - pad))) * (H - P.t - P.b);
-  // closed-market shading (New York time): weekends + outside 9:30-16:00
-  const ny = (ts) => new Date(new Date(ts).toLocaleString("en-US", { timeZone: "America/New_York" }));
-  const closed = (ts) => { const d = ny(ts), m = d.getHours() * 60 + d.getMinutes(); return d.getDay() === 0 || d.getDay() === 6 || m < 570 || m >= 960; };
-  let shade = "", start = null;
-  for (let i = 0; i < points.length; i++) {
-    const c = closed(points[i].t);
-    if (c && start === null) start = points[i].t;
-    if ((!c || i === points.length - 1) && start !== null) { const end = points[i].t; shade += `<rect x="${X(start)}" y="${P.t}" width="${Math.max(1, X(end) - X(start))}" height="${H - P.t - P.b}" fill="#ffffff" opacity=".035"/>`; start = null; }
-  }
-  const line = (k) => points.map((p, i) => `${i ? "L" : "M"}${X(p.t).toFixed(1)},${Y(p[k]).toFixed(1)}`).join("");
-  const days = [...new Set(points.map((p) => new Date(p.t).toISOString().slice(0, 10)))];
-  const ticks = days.map((d) => { const ts = Date.parse(d + "T12:00:00Z"); return ts >= x0 && ts <= x1 ? `<text x="${X(ts)}" y="${H - 4}" text-anchor="middle">${new Date(ts).toLocaleDateString("en-US", { weekday: "short" })}</text>` : ""; }).join("");
-  // biggest gap in the window
-  const g = points.reduce((b, p) => Math.abs(p.onchain / p.real - 1) > Math.abs(b.onchain / b.real - 1) ? p : b, points[0]);
+// Charts: TradingView Lightweight Charts. Top: on-chain (area) vs real (dashed). Bottom: gap %.
+// Both shade the hours Wall Street was closed (New York time).
+const closedNY = (ts) => { const d = new Date(new Date(ts).toLocaleString("en-US", { timeZone: "America/New_York" })), m = d.getHours() * 60 + d.getMinutes(); return d.getDay() === 0 || d.getDay() === 6 || m < 570 || m >= 960; };
+async function drawCharts() {
+  charts.forEach((c) => c.remove()); charts = [];
+  $("chart").innerHTML = `<div class="skel" style="height:220px"></div>`; $("gapchart").innerHTML = "";
+  const { points } = await fetch(`/api/app/chart?ticker=${current.ticker}&days=${days}`).then((r) => r.json());
+  $("chart").innerHTML = "";
+  const pts = (points ?? []).filter((p) => p.t >= Date.now() - days * 86400_000);
+  if (!pts.length || !window.LightweightCharts) { $("chart").innerHTML = `<div class="muted" style="padding:40px 0;text-align:center">No history yet.</div>`; return; }
+  const LC = window.LightweightCharts;
+  const base = (el, h) => LC.createChart(el, {
+    height: h, autoSize: true,
+    layout: { background: { type: "solid", color: "transparent" }, textColor: "#7d8794", fontFamily: "Manrope", fontSize: 11 },
+    grid: { vertLines: { visible: false }, horzLines: { color: "rgba(35,41,51,.7)" } },
+    rightPriceScale: { borderVisible: false }, timeScale: { borderVisible: false, timeVisible: days <= 3, secondsVisible: false },
+    crosshair: { vertLine: { color: "#3a4352", labelBackgroundColor: "#1b2028" }, horzLine: { color: "#3a4352", labelBackgroundColor: "#1b2028" } },
+    handleScroll: false, handleScale: false,
+  });
+  const T = (p) => Math.floor(p.t / 1000);
+  const shadeData = pts.map((p) => ({ time: T(p), value: 1, color: closedNY(p.t) ? "rgba(255,255,255,0.045)" : "rgba(0,0,0,0)" }));
+  const addShade = (c) => { const s = c.addHistogramSeries({ priceScaleId: "shade", priceLineVisible: false, lastValueVisible: false }); c.priceScale("shade").applyOptions({ scaleMargins: { top: 0, bottom: 0 }, visible: false }); s.setData(shadeData); };
+
+  const c1 = base($("chart"), 220); charts.push(c1); addShade(c1);
+  const real = c1.addLineSeries({ color: "#7d8794", lineWidth: 1.5, lineStyle: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+  real.setData(pts.map((p) => ({ time: T(p), value: p.real })));
+  const on = c1.addAreaSeries({ lineColor: "#f0b90b", topColor: "rgba(240,185,11,.28)", bottomColor: "rgba(240,185,11,0)", lineWidth: 2, priceLineColor: "#f0b90b", priceFormat: { type: "price", precision: 2, minMove: 0.01 } });
+  on.setData(pts.map((p) => ({ time: T(p), value: p.onchain })));
+  c1.timeScale().fitContent();
+
+  const c2 = base($("gapchart"), 84); charts.push(c2); addShade(c2);
+  c2.applyOptions({ timeScale: { visible: false } });
+  const gap = c2.addHistogramSeries({ priceFormat: { type: "custom", formatter: (v) => `${v.toFixed(2)}%` }, priceLineVisible: false });
+  gap.setData(pts.map((p) => { const g = (p.onchain / p.real - 1) * 100; return { time: T(p), value: g, color: g >= 0 ? "rgba(22,199,132,.75)" : "rgba(240,77,99,.75)" }; }));
+  c2.timeScale().fitContent();
+
+  const g = pts.reduce((b, p) => Math.abs(p.onchain / p.real - 1) > Math.abs(b.onchain / b.real - 1) ? p : b, pts[0]);
   const gPct = (g.onchain / g.real - 1) * 100;
-  $("chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">
-    ${shade}
-    <path d="${line("real")}" fill="none" stroke="#848e9c" stroke-width="1.5" stroke-dasharray="3 3"/>
-    <path d="${line("onchain")}" fill="none" stroke="#f0b90b" stroke-width="2"/>
-    <text x="${W - P.r + 4}" y="${Y(hi) + 4}">$${fmt(hi, 0)}</text><text x="${W - P.r + 4}" y="${Y(lo)}">$${fmt(lo, 0)}</text>
-    ${ticks}
-  </svg>`;
-  $("chartNote").innerHTML = `Shaded = Wall Street closed. Biggest gap this week: <b class="${gPct >= 0 ? "up" : "down"}">${pct(gPct)}</b> (${new Date(g.t).toLocaleString("en-US", { weekday: "short", hour: "numeric" })}). Our own data, every 15 min.`;
+  const when = new Date(g.t).toLocaleString("en-US", { weekday: "short", hour: "numeric" });
+  $("gapNoteText").innerHTML = `Biggest gap in this view: <b class="${gPct >= 0 ? "up" : "down"}">${pct(gPct)}</b> on ${when}${closedNY(g.t) ? ", while Wall Street was closed" : ""}. Your club blocks trades when the gap is over its limit.`;
 }
 
-// ---------- onboarding ----------
+// ---------- onboarding (swipe or tap Next) ----------
+const D1 = `<svg class="diagram" viewBox="0 0 320 210"><defs><linearGradient id="dg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ffe7a3"/><stop offset="1" stop-color="#e5ad06"/></linearGradient></defs>
+  <rect x="10" y="30" width="122" height="92" rx="16" fill="#14181e" stroke="#2c3440"/><text x="26" y="58" fill="#7d8794" font-size="11" font-weight="700">NASDAQ</text><text x="26" y="84" fill="#eef0f3" font-size="22" font-weight="800">NVDA</text><text x="26" y="106" fill="#7d8794" font-size="12">1 real share</text>
+  <rect x="188" y="30" width="122" height="92" rx="16" fill="#1d1806" stroke="#f0b90b" stroke-opacity=".55"/><text x="204" y="58" fill="#f0b90b" font-size="11" font-weight="700">BNB CHAIN</text><text x="204" y="84" fill="#eef0f3" font-size="22" font-weight="800">NVDAB</text><text x="204" y="106" fill="#b9c0ca" font-size="12">1 token</text>
+  <path d="M140 66h40" stroke="#f0b90b" stroke-width="2.5" stroke-linecap="round"/><path d="m172 59 8 7-8 7" fill="none" stroke="#f0b90b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M180 88h-40" stroke="#7d8794" stroke-width="2" stroke-dasharray="4 4" stroke-linecap="round"/><text x="160" y="110" fill="#7d8794" font-size="10" text-anchor="middle">tracks</text>
+  <path d="M249 130v22" stroke="#2c3440" stroke-width="2"/><rect x="190" y="152" width="118" height="44" rx="14" fill="#14181e" stroke="#2c3440"/>
+  <g transform="translate(204 163)" fill="none" stroke="#f0b90b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 5V3a1 1 0 0 0-1-1H4a2 2 0 0 0 0 4h13a1 1 0 0 1 1 1v3h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2"/><path d="M2 4v12a2 2 0 0 0 2 2h13a1 1 0 0 0 1-1v-3"/></g>
+  <text x="232" y="179" fill="#eef0f3" font-size="13" font-weight="700">Your wallet</text>
+  <text x="10" y="168" fill="#b9c0ca" font-size="12">Issued by</text><text x="10" y="186" fill="#eef0f3" font-size="13" font-weight="800">bStocks · Ondo</text></svg>`;
+const D2 = (() => {
+  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], x0 = 34, w = 38;
+  let s = `<svg class="diagram" viewBox="0 0 320 210">`;
+  days.forEach((d, i) => { const x = x0 + i * w; s += `<text x="${x + w / 2}" y="198" fill="#7d8794" font-size="11" text-anchor="middle" font-weight="700">${d}</text>`; if (i < 5) s += `<rect x="${x + 12}" y="58" width="14" height="22" rx="4" fill="#2c3440"/>`; });
+  s += `<rect x="${x0 + 5 * w}" y="20" width="${2 * w}" height="160" rx="10" fill="#f04d63" fill-opacity=".06" stroke="#f04d63" stroke-opacity=".25" stroke-dasharray="4 4"/>`;
+  s += `<text x="4" y="73" fill="#7d8794" font-size="10" font-weight="700">NYSE</text><text x="4" y="133" fill="#f0b90b" font-size="10" font-weight="700">BNB</text>`;
+  s += `<path d="M${x0} 128 C 80 120, 110 136, 150 126 S 210 122, 222 124 S 250 108, 270 100 S 300 92, 300 90" fill="none" stroke="#f0b90b" stroke-width="2.5"/>`;
+  s += `<path d="M222 124 H 300" stroke="#7d8794" stroke-width="1.5" stroke-dasharray="4 4"/>`;
+  s += `<path d="M296 96 V 120" stroke="#f04d63" stroke-width="2" marker-end="none"/><circle cx="296" cy="96" r="3" fill="#f04d63"/><circle cx="296" cy="122" r="3" fill="#7d8794"/>`;
+  s += `<text x="${x0 + 5 * w + w}" y="40" fill="#f04d63" font-size="11" font-weight="800" text-anchor="middle">GAP</text>`;
+  s += `<text x="${x0}" y="100" fill="#7d8794" font-size="10">Wall Street open</text></svg>`;
+  return s;
+})();
+const D3 = `<svg class="diagram" viewBox="0 0 320 210">
+  ${[0, 1, 2].map((i) => `<circle cx="${56 + i * 26}" cy="44" r="20" fill="hsl(${[45, 200, 140][i]} 45% 18%)" stroke="#0a0c10" stroke-width="3"/><text x="${56 + i * 26}" y="49" fill="hsl(${[45, 200, 140][i]} 80% 72%)" font-size="13" font-weight="800" text-anchor="middle">${"AVK"[i]}</text>`).join("")}
+  <text x="148" y="40" fill="#eef0f3" font-size="13" font-weight="800">"Buy $10 NVDA?"</text><text x="148" y="58" fill="#7d8794" font-size="11">proposed in your group</text>
+  <path d="M82 72v20" stroke="#2c3440" stroke-width="2"/>
+  <rect x="20" y="92" width="280" height="40" rx="12" fill="#14181e" stroke="#2c3440"/><rect x="32" y="106" width="180" height="12" rx="6" fill="#1b2028"/><rect x="32" y="106" width="150" height="12" rx="6" fill="#16c784"/>
+  <text x="226" y="117" fill="#16c784" font-size="12" font-weight="800">3 of 3 yes</text>
+  <path d="M82 132v14M160 132v14M238 132v14" stroke="#2c3440" stroke-width="2"/>
+  ${[82, 160, 238].map((x) => `<rect x="${x - 34}" y="146" width="68" height="48" rx="12" fill="#1d1806" stroke="#f0b90b" stroke-opacity=".45"/><g transform="translate(${x - 9} 154)" fill="none" stroke="#f0b90b" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V3a1 1 0 0 0-1-1H3.5a1.5 1.5 0 0 0 0 3H15a1 1 0 0 1 1 1v2.5h-2.5a1.5 1.5 0 0 0 0 3H16"/><path d="M2 3.5v9.5A1.5 1.5 0 0 0 3.5 14.5H15a1 1 0 0 0 1-1V11"/></g><text x="${x}" y="186" fill="#eef0f3" font-size="10" font-weight="700" text-anchor="middle">own wallet</text>`).join("")}
+</svg>`;
 const SLIDES = [
-  { art: "📈", h: "Real stocks, on-chain", p: "Tokenized stocks are tokens on BNB Chain that follow a real share, like Nvidia or Tesla. They're issued by <b>bStocks</b> and <b>Ondo</b>, and they sit in <b>your own wallet</b>." },
-  { art: "🌙", h: "They trade 24/7", p: "Wall Street closes at night and on weekends. On-chain stocks don't. While the market sleeps, their price can drift from the real one. Stock Club shows you that <b>gap</b> and blocks trades when it's too big." },
-  { art: "👥", h: "Decide together, buy yourself", p: "Your friends propose and vote in a Telegram group. When a vote passes, <b>everyone buys in their own wallet</b>, with one tap or automatically with Autopilot. Nobody holds anyone's money." },
+  { d: D1, h: "Real stocks, on-chain", p: "Tokenized stocks are tokens on BNB Chain that follow a real share, like Nvidia or Tesla. Issued by bStocks and Ondo, they sit in <b style='color:var(--fg)'>your own wallet</b>." },
+  { d: D2, h: "Markets close. On-chain doesn't.", p: "Wall Street shuts at night and on weekends; tokenized stocks keep trading. Their price can drift from the real one: the <b style='color:var(--fg)'>gap</b>. Stock Club shows it and blocks trades when it's too big." },
+  { d: D3, h: "Decide together. Buy yourself.", p: "Friends propose and vote in a Telegram group. When a vote passes, <b style='color:var(--fg)'>everyone buys in their own wallet</b>, with one tap or automatically with Autopilot." },
 ];
 let slide = 0;
-function showOnboarding(i = 0) {
-  slide = i; $("ob").classList.add("on");
-  if (slide < SLIDES.length) {
-    const s = SLIDES[slide];
-    $("obBody").innerHTML = `<div class="art">${s.art}</div><h1>${s.h}</h1><p>${s.p}</p>`;
-    $("obDots").innerHTML = SLIDES.map((_, k) => `<i class="${k === slide ? "on" : ""}"></i>`).join("") + "<i></i>";
-    $("obNext").textContent = slide === SLIDES.length - 1 ? "Get ready" : "Next"; $("obSkip").style.display = "";
-  } else renderChecklist();
+function buildSlides() {
+  $("obTrack").innerHTML = SLIDES.map((s) => `<div class="slide">${s.d}<h1>${s.h}</h1><p>${s.p}</p></div>`).join("") + `<div class="slide" id="obCheck"></div>`;
 }
+function go(i) {
+  slide = Math.max(0, Math.min(SLIDES.length, i));
+  $("obTrack").style.transform = `translateX(-${slide * 100}%)`;
+  $("obDots").innerHTML = [...SLIDES, 0].map((_, k) => `<i class="${k === slide ? "on" : ""}"></i>`).join("");
+  $("obSkip").textContent = slide < SLIDES.length ? "Skip" : "Later";
+  if (slide < SLIDES.length) { $("obNext").innerHTML = slide === SLIDES.length - 1 ? `Get ready ${icon("next", "sm")}` : `Next ${icon("next", "sm")}`; $("obNext").onclick = () => { haptic(); go(slide + 1); }; }
+  else renderChecklist();
+}
+function showOnboarding(i = 0) { buildSlides(); $("ob").classList.add("on"); go(i); }
+// swipe
+(() => { let x0 = null, y0 = null; const st = $("obStage");
+  st.addEventListener("touchstart", (e) => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+  st.addEventListener("touchend", (e) => { if (x0 == null) return; const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) { haptic(); go(slide + (dx < 0 ? 1 : -1)); } x0 = null; }, { passive: true });
+})();
 async function renderChecklist() {
-  $("obDots").innerHTML = SLIDES.map(() => "<i></i>").join("") + `<i class="on"></i>`;
   const wallet = store.get("wallet") || me?.wallet;
   let p = null; if (wallet) { try { p = await api(`portfolio?wallet=${wallet}`); } catch {} }
   const hasClub = !!me?.clubs?.length, did = store.get("didTrade") === "1";
   const steps = [
-    { ok: !!wallet, t: "Binance Wallet", d: wallet ? `Connected: <code>${wallet.slice(0, 6)}…${wallet.slice(-4)}</code>` :
-      `Get the <b>Binance app</b> and open <b>Wallet</b> (keyless). Then paste your BNB Smart Chain address:<input id="obW" placeholder="0x…" style="margin-top:6px" />` },
-    { ok: p ? p.usdt >= 1 : false, t: "USDT on BNB Smart Chain", d: p ? `You have <b>$${fmt(p.usdt)}</b> USDT.` + (p.usdt >= 1 ? "" : " Buy USDT in the Binance app, then send it to your Binance Wallet on <b>BNB Smart Chain</b>.") : "This is the cash you buy stocks with. $5 is plenty to start." },
-    { ok: p ? p.bnb >= 0.0003 : false, t: "A little BNB for fees", d: p ? `You have ${fmt(p.bnb, 5)} BNB.` + (p.bnb >= 0.0003 ? " Enough for many trades." : " About $0.50 of BNB covers many trades (~$0.03–0.10 each).") : "Each trade costs a few cents in BNB." },
-    { ok: hasClub, t: "Join a club", d: hasClub ? `You're in <b>${me.clubs.map((c) => c.name).join(", ")}</b>.` : clubHowTo() },
-    { ok: did, t: "Your first trade", d: hasClub ? "Try it with $1: propose NVDA, vote yes in the group, then tap Buy in your chat with me." : "After you join a club." },
+    { ok: !!wallet, i: "wallet", t: "Binance Wallet", d: wallet ? `Connected <code>${wallet.slice(0, 6)}…${wallet.slice(-4)}</code>` : `Get the Binance app and open <b>Wallet</b> (keyless). Paste your BNB Smart Chain address:<input id="obW" placeholder="0x…" />` },
+    { ok: p ? p.usdt >= 1 : false, i: "coins", t: "USDT on BNB Smart Chain", d: p ? `You have <b class="num" style="color:var(--fg)">$${fmt(p.usdt)}</b>.` + (p.usdt >= 1 ? "" : " Buy USDT in the Binance app and send it to your Binance Wallet on BNB Smart Chain.") : "The cash you buy stocks with. $5 is plenty to start." },
+    { ok: p ? p.bnb >= 0.0003 : false, i: "fuel", t: "A little BNB for fees", d: p ? `You have <span class="num">${fmt(p.bnb, 5)}</span> BNB.` + (p.bnb >= 0.0003 ? " Enough for many trades." : " About $0.50 covers many trades (a few cents each).") : "Each trade costs a few cents in BNB." },
+    { ok: hasClub, i: "users", t: "Join a club", d: hasClub ? `You're in <b style="color:var(--fg)">${me.clubs.map((c) => c.name).join(", ")}</b>.` : clubHowTo() },
+    { ok: did, i: "zap", t: "Your first trade", d: hasClub ? "Try it with $1: propose NVDA, vote yes in the group, then tap Buy in your chat with me." : "After you join a club." },
   ];
   const done = steps.filter((s) => s.ok).length;
-  $("obBody").innerHTML = `<h1 style="margin-top:20px">Get ready</h1><div class="muted">${done} of ${steps.length} done</div>
-    <div class="card" style="margin-top:12px">${steps.map((s) => `<div class="check"><div class="tick ${s.ok ? "ok" : "no"}">${s.ok ? "✓" : "•"}</div><div><b>${s.t}</b><div class="muted">${s.d}</div></div></div>`).join("")}</div>`;
+  $("obCheck").innerHTML = `<h1 style="margin-top:6px">Get ready</h1><div class="muted num">${done} of ${steps.length} done</div>
+    <div class="card" style="margin-top:12px;padding:4px 14px">${steps.map((s) => `<div class="check"><div class="tick ${s.ok ? "ok" : ""}">${icon(s.ok ? "check" : s.i, "sm")}</div><div style="flex:1"><b>${s.t}</b><div class="muted">${s.d}</div></div></div>`).join("")}</div>`;
   const first = hasClub && !did;
-  $("obNext").textContent = !wallet ? "Check my wallet" : first ? "Try my first $1 trade" : "Go to Markets";
-  $("obSkip").style.display = ""; $("obSkip").textContent = "Later";
-  $("obNext").onclick = async () => {
-    if (!wallet) { const v = $("obW")?.value.trim(); if (/^0x[0-9a-fA-F]{40}$/.test(v)) { store.set("wallet", v); renderChecklist(); } else toast("Paste your wallet address (starts with 0x)."); return; }
+  $("obNext").innerHTML = !wallet ? "Check my wallet" : first ? `${icon("zap", "sm")}Try my first $1 trade` : "Go to Markets";
+  $("obNext").onclick = () => {
+    haptic();
+    if (!wallet) { const v = $("obW")?.value.trim(); if (/^0x[0-9a-fA-F]{40}$/.test(v)) { store.set("wallet", v); renderChecklist(); } else toast("Paste your wallet address (it starts with 0x).", "bad"); return; }
     finishOnboarding();
-    if (first) { amount = 1; openStock("NVDA"); toast("Tap <b>Propose: buy $1 each</b> to start your first vote.", 6000); }
+    if (first) { amount = 1; openStock("NVDA"); toast("Tap <b>Propose: buy $1 each</b> to start your first vote.", "info", 7000); }
   };
   renderStart(done, steps.length);
 }
-function finishOnboarding() { store.set("onboarded", "1"); $("ob").classList.remove("on"); $("obNext").onclick = obNext; $("obSkip").textContent = "Skip"; }
-const obNext = () => { haptic(); showOnboarding(slide + 1); };
-$("obNext").onclick = obNext;
-$("obSkip").onclick = () => { if (slide < SLIDES.length) showOnboarding(SLIDES.length); else finishOnboarding(); };
+function finishOnboarding() { store.set("onboarded", "1"); $("ob").classList.remove("on"); renderStart(); }
+$("obSkip").onclick = () => { haptic(); if (slide < SLIDES.length) go(SLIDES.length); else finishOnboarding(); };
 function renderStart(done, total) {
-  const show = store.get("onboarded") === "1" && store.get("didTrade") !== "1";
-  $("startCard").style.display = show ? "" : "none";
+  $("startCard").style.display = store.get("onboarded") === "1" && store.get("didTrade") !== "1" ? "" : "none";
   if (done != null) $("startCount").textContent = `${done}/${total}`;
 }
 $("startBtn").onclick = () => showOnboarding(SLIDES.length);
@@ -389,7 +556,8 @@ $("startBtn").onclick = () => showOnboarding(SLIDES.length);
 // ---------- start ----------
 (async () => {
   if (store.get("onboarded") !== "1") showOnboarding(0);
-  await Promise.all([loadMarkets().catch((e) => { $("list").innerHTML = `<div class="muted">Couldn't load prices: ${e.message}</div>`; }), loadMe()]);
+  loadSparks();
+  await Promise.all([loadMarkets().catch((e) => { $("list").innerHTML = `<div class="muted" style="padding:14px 0">Couldn't load prices: ${e.message}</div>`; }), loadMe()]);
   setInterval(() => loadMarkets().catch(() => {}), 30_000);
 })();
 </script>

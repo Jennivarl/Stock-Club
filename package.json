@@ -23,6 +23,7 @@
   "devDependencies": {
     "@reown/appkit": "^1.8.24",
     "@reown/appkit-adapter-ethers": "^1.8.24",
+    "@resvg/resvg-js": "^2.6.2",
     "@types/node": "^26.6.4",
     "@types/ws": "^8.18.2",
     "esbuild": "^0.28.2",

@@ -42,6 +42,14 @@ export function startWeb(api: Api) {
         return send(res, 200, { walletConnectProjectId: process.env.WALLETCONNECT_PROJECT_ID ?? "" });
       }
 
+      // Static images (logo, icons). Only simple file names from public/assets.
+      const asset = url.pathname.match(/^\/assets\/([a-z0-9-]+\.(svg|png))$/);
+      if (req.method === "GET" && asset) {
+        const f = path.join(PUBLIC, "assets", asset[1]);
+        if (!fs.existsSync(f)) return send(res, 404, { error: "Not found" });
+        res.writeHead(200, { "Content-Type": asset[2] === "svg" ? "image/svg+xml" : "image/png", "Cache-Control": "public, max-age=3600" });
+        return res.end(fs.readFileSync(f));
+      }
       if (req.method === "GET" && (url.pathname === "/app" || url.pathname === "/app/")) {
         return send(res, 200, fs.readFileSync(path.join(PUBLIC, "app.html"), "utf8"), "text/html; charset=utf-8");
       }
