@@ -78,6 +78,14 @@
   .meter { position: relative; height: 8px; border-radius: 6px; background: #1b2028; margin: 14px 0 8px; overflow: visible; }
   .meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; background: linear-gradient(90deg, #16c784, #f0b90b 70%, #f04d63); }
   .meter span { position: absolute; top: -4px; bottom: -4px; width: 2px; background: #eef0f3; border-radius: 2px; }
+  .mkt { display: grid; gap: 3px; text-align: right; }
+  .mkt > div { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+  .mk { font-size: 9.5px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #5d6672; }
+  .mv { display: inline-flex; align-items: center; gap: 6px; min-width: 74px; justify-content: flex-start; font-size: 12px; font-weight: 700; color: var(--fg2); }
+  .mv i { width: 6px; height: 6px; border-radius: 50%; background: #5d6672; }
+  .mv i.open { background: var(--up); } .mv i.closed { background: #a14455; }
+  .mv i.on { background: var(--gold); animation: blink 2.4s ease-in-out infinite; }
+  @keyframes blink { 50% { opacity: .35; } }
   /* ticker tape */
   .tape { position: relative; overflow: hidden; margin: 12px -16px 0; padding: 9px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: rgba(255,255,255,.015); -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
   .tape .run { display: inline-flex; gap: 22px; white-space: nowrap; animation: tape 38s linear infinite; padding-left: 16px; }
@@ -219,7 +227,10 @@
 <div class="view on" id="v-home"><div class="wrap">
   <div class="row between">
     <div class="brand"><img src="/assets/mark-192.png" alt="" /><div class="col"><b>Stock Club</b><span class="muted" id="hello" style="font-size:12px">Tokenized stocks on BNB Chain</span></div></div>
-    <span class="pill" id="wsPill"><span class="live"></span><span id="wsText">…</span></span>
+    <div class="mkt" id="mkt">
+      <div><span class="mk">NYSE</span><span class="mv" id="wsText"><i id="wsDot"></i>…</span></div>
+      <div><span class="mk">On-chain</span><span class="mv gold"><i class="on"></i>Live 24/7</span></div>
+    </div>
   </div>
   <div class="tape"><div class="run num" id="tape"></div></div>
 
@@ -392,8 +403,7 @@ async function loadMarkets() {
   market = await api("stocks");
   for (const s of market.stocks) if (s.logo) LOGOS[s.ticker] = s.logo;
   const ws = market.wallStreet;
-  $("wsPill").className = `pill ${ws.open ? "open" : "closed"}`;
-  $("wsText").textContent = ws.open ? "Wall Street open" : "Wall Street closed";
+  $("wsText").innerHTML = `<i class="${ws.open ? "open" : "closed"}"></i>${ws.open ? "Open" : "Closed"}`;
   $("heroIcon").setAttribute("href", ws.open ? "#i-sun" : "#i-moon");
   $("heroTitle").textContent = ws.open ? "Wall Street is open." : "Wall Street is closed. On-chain isn't.";
   $("heroText").innerHTML = ws.open ? "On-chain prices follow the real ones closely while the market is open. Watch the <b style='color:var(--fg)'>gap</b> after hours." : "Tokenized stocks trade 24/7. While the market sleeps, their price can drift from the last real price. That's the <b style='color:var(--fg)'>gap</b>.";
