@@ -38,6 +38,7 @@ export type BuyPlan = {
   vendor: string;
   expectedQty: number;
   minQty: number;
+  spender: string; // the router that takes the USDT
   approve?: { to: string; data: string; gas: string }; // only if USDT allowance is too low
   tx: { to: string; data: string; value: string; gas: string };
   balances: { bnb: number; usdt: number };
@@ -76,10 +77,32 @@ export async function planBuy(wallet: string, token: string, usd: number): Promi
     vendor: quote.vendorName,
     expectedQty: Number(quote.toTokenAmount) / 1e18,
     minQty: Number(tx.minReceiveAmount ?? 0) / 1e18,
+    spender,
     approve,
     tx: { to: tx.to, data: tx.data, value: "0x" + BigInt(tx.value ?? 0).toString(16), gas: "0x" + BigInt(tx.gas ?? 450000).toString(16) },
     balances: bal,
   };
+}
+
+// True once the wallet has allowed the router to take this buy's USDT.
+export async function isApproved(wallet: string, spender: string, usd: number): Promise<boolean> {
+  return (await erc20(USDT, "0xdd62ed3e" + pad(wallet) + pad(spender))) >= BigInt(toWei(usd));
+}
+
+export const sentCount = async (wallet: string) => Number(await rpc<string>("eth_getTransactionCount", [wallet, "latest"]));
+export const blockNumber = async () => Number(await rpc<string>("eth_blockNumber", []));
+
+// Looks through blocks [from, to] for a tx the wallet sent to the router that buys this token.
+// (The public BSC node refuses log searches, so we read the blocks.)
+export async function findBuyTx(wallet: string, router: string, token: string, from: number, to: number): Promise<string | undefined> {
+  const w = wallet.toLowerCase(), r = router.toLowerCase(), t = token.toLowerCase().replace(/^0x/, "");
+  for (let b = from; b <= to; b++) {
+    const block: any = await rpc("eth_getBlockByNumber", ["0x" + b.toString(16), true]);
+    const tx = (block?.transactions ?? []).find((x: any) =>
+      x.from?.toLowerCase() === w && x.to?.toLowerCase() === r && String(x.input).toLowerCase().includes(t));
+    if (tx) return tx.hash;
+  }
+  return undefined;
 }
 
 export async function receiptStatus(txHash: string): Promise<string | null> {

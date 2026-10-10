@@ -6,45 +6,66 @@
 <title>Stock Club · Buy</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-  :root { --bg: #ffffff; --fg: #111; --muted: #666; --card: #f3f4f6; --accent: #f0b90b; --ok: #16a34a; --bad: #dc2626; }
-  @media (prefers-color-scheme: dark) { :root { --bg: #17181c; --fg: #eee; --muted: #9aa0a6; --card: #23252b; } }
+  :root { --bg: #ffffff; --fg: #111; --muted: #666; --card: #f3f4f6; --accent: #f0b90b; --ok: #16a34a; --bad: #dc2626; --line: #d1d5db; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #17181c; --fg: #eee; --muted: #9aa0a6; --card: #23252b; --line: #3a3d44; } }
+  * { box-sizing: border-box; }
   body { margin: 0; padding: 16px; font: 16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
          background: var(--tg-theme-bg-color, var(--bg)); color: var(--tg-theme-text-color, var(--fg)); }
-  h1 { font-size: 22px; margin: 4px 0 12px; }
-  .card { background: var(--tg-theme-secondary-bg-color, var(--card)); border-radius: 14px; padding: 14px; margin: 12px 0; }
+  h1 { font-size: 22px; margin: 4px 0; }
   .muted { color: var(--tg-theme-hint-color, var(--muted)); font-size: 14px; }
-  button { width: 100%; padding: 14px; margin: 6px 0; border: 0; border-radius: 12px; font-size: 16px; font-weight: 600;
+  .card { background: var(--tg-theme-secondary-bg-color, var(--card)); border-radius: 14px; padding: 14px; margin: 12px 0; }
+  .steps { list-style: none; margin: 0; padding: 0; }
+  .steps li { display: flex; align-items: center; gap: 10px; padding: 7px 0; color: var(--tg-theme-hint-color, var(--muted)); }
+  .steps .dot { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center;
+                font-size: 13px; font-weight: 700; flex: none; }
+  .steps li.active { color: inherit; font-weight: 600; }
+  .steps li.active .dot { border-color: var(--accent); background: var(--accent); color: #111; }
+  .steps li.done { color: inherit; }
+  .steps li.done .dot { border-color: var(--ok); background: var(--ok); color: #fff; }
+  .steps li.fail .dot { border-color: var(--bad); background: var(--bad); color: #fff; }
+  button { width: 100%; padding: 14px; margin: 8px 0 0; border: 0; border-radius: 12px; font-size: 16px; font-weight: 600;
            background: var(--accent); color: #111; cursor: pointer; }
-  button.secondary { background: transparent; color: inherit; border: 1px solid var(--tg-theme-hint-color, #999); }
-  button:disabled { opacity: .5; }
-  .step { display: flex; gap: 8px; align-items: baseline; }
+  button.secondary { background: transparent; color: inherit; border: 1px solid var(--line); }
+  #msg { margin: 0 0 6px; }
   .ok { color: var(--ok); } .bad { color: var(--bad); }
-  code { word-break: break-all; font-size: 13px; }
-  .hidden { display: none; }
+  .spin { display: inline-block; width: 12px; height: 12px; border: 2px solid currentColor; border-right-color: transparent;
+          border-radius: 50%; animation: r .8s linear infinite; vertical-align: -1px; margin-right: 6px; }
+  @keyframes r { to { transform: rotate(360deg); } }
+  .big { font-size: 44px; margin: 4px 0; }
+  .center { text-align: center; }
+  a { color: inherit; }
+  code { font-size: 13px; }
+  .hidden { display: none !important; }
 </style>
 </head>
 <body>
   <h1 id="title">Loading…</h1>
-  <div class="card">
-    <div id="summary" class="muted">Getting your order…</div>
+  <div id="summary" class="muted">Getting your order…</div>
+
+  <div class="card" id="stepsCard">
+    <ul class="steps">
+      <li id="s-connect"><span class="dot">1</span>Connect your wallet</li>
+      <li id="s-allow" class="hidden"><span class="dot">2</span>Allow USDT for this buy</li>
+      <li id="s-buy"><span class="dot">2</span>Confirm the buy</li>
+      <li id="s-done"><span class="dot">3</span>Done</li>
+    </ul>
   </div>
 
-  <div id="connectBox" class="card hidden">
-    <b>1. Connect your wallet</b>
-    <p class="muted">Use the wallet that holds your USDT and a little BNB on BNB Smart Chain.</p>
-    <button id="btnConnect">Connect wallet</button>
-    <p class="muted">Pick <b>Binance Wallet</b>, approve in the app, then come back to Telegram.</p>
+  <div class="card" id="action">
+    <p id="msg">Getting your order…</p>
+    <div id="detail" class="muted"></div>
+    <button id="btnMain" class="hidden"></button>
   </div>
 
-  <div id="buyBox" class="card hidden">
-    <b>2. Buy</b>
-    <div id="plan" class="muted"></div>
-    <button id="btnBuy" disabled>Buy</button>
-    <button id="btnConfirm" class="hidden">Open Binance Wallet to confirm</button>
-    <p class="muted">Your wallet will ask you to confirm. You keep your keys; Stock Club never holds your money.</p>
+  <div class="card center hidden" id="doneCard">
+    <div class="big" id="doneIcon">✅</div>
+    <h1 id="doneTitle"></h1>
+    <p id="doneText" class="muted"></p>
+    <p><a id="doneLink" target="_blank">View on BscScan</a></p>
+    <button id="btnClose">Back to Telegram</button>
   </div>
 
-  <div id="status" class="card hidden"></div>
+  <p class="muted center">You keep your keys. Stock Club never holds your money.</p>
 
 <script>
 // Debug: record what happens to WalletConnect's relay connection on the phone (open / error / close codes).
@@ -61,9 +82,6 @@
     url = String(url).replace(/^wss:\/\/relay\.walletconnect\.(org|com)\/?/, `wss://${location.host}/wc-relay/`);
     const id = ++n, host = String(url).split("?")[0], t0 = Date.now();
     send("ws-new", `#${id} ${host}`);
-    // Full relay URL (has a short-lived relay auth token, no wallet data) so the server can replay it and see the real error.
-    if (false) fetch(`/api/log?t=${encodeURIComponent(t)}`, { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ event: "ws-url", detail: String(url) }) }).catch(() => {});
     const ws = protocols ? new Native(url, protocols) : new Native(url);
     let sent = 0, recv = 0;
     const origSend = ws.send.bind(ws);
@@ -85,11 +103,11 @@ const tg = window.Telegram?.WebApp; tg?.ready(); tg?.expand();
 const t = new URLSearchParams(location.search).get("t");
 const $ = (id) => document.getElementById(id);
 const show = (id, on = true) => $(id).classList.toggle("hidden", !on);
-const say = (html, cls = "") => { show("status"); $("status").innerHTML = `<span class="${cls}">${html}</span>`; };
 const openLink = (u) => (tg?.openLink ? tg.openLink(u) : window.open(u, "_blank"));
-const BINANCE_WC = "https://app.binance.com/cedefi"; // from WalletConnect's wallet directory
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const BINANCE_WC = "https://app.binance.com/cedefi"; // Binance Wallet's link from WalletConnect's wallet directory
 
-let wallet, plan, order;
+let wallet, plan, order, wc;
 
 // Send what happens on the phone to our server log, so we see real errors instead of guessing.
 function log(event, detail = "") {
@@ -99,107 +117,148 @@ function log(event, detail = "") {
 window.addEventListener("error", (e) => log("js-error", e.message));
 window.addEventListener("unhandledrejection", (e) => log("promise-error", e.reason?.message ?? e.reason));
 
-async function api(path, body) {
-  const r = await fetch(`/api/${path}?t=${encodeURIComponent(t)}`, body
+async function api(path, body, params = {}) {
+  const q = new URLSearchParams({ t, ...params });
+  const r = await fetch(`/api/${path}?${q}`, body
     ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {});
   const j = await r.json();
   if (!r.ok) throw new Error(j.error || `Error ${r.status}`);
   return j;
 }
 
+// ---- screen ----
+const NUM = {};
+function step(id, state) { // state: "" | "active" | "done" | "fail"
+  const li = $(`s-${id}`), dot = li.querySelector(".dot");
+  NUM[id] ??= dot.textContent;
+  li.classList.remove("active", "done", "fail"); if (state) li.classList.add(state);
+  dot.textContent = state === "done" ? "✓" : state === "fail" ? "!" : NUM[id];
+}
+function screen(msg, detail = "", button) {
+  $("msg").innerHTML = msg; $("detail").innerHTML = detail;
+  show("btnMain", !!button);
+  if (button) { $("btnMain").textContent = button.label; $("btnMain").onclick = button.onClick; }
+}
+const waiting = (text) => `<span class="spin"></span>${text}`;
+const failed = (msg) => screen(`<span class="bad">${msg}</span>`, "Nothing was bought.", { label: "Try again", onClick: makePlan });
+const openWallet = { label: "Open Binance Wallet", onClick: () => { log("open-wallet-tap"); openLink(BINANCE_WC); } };
+
+function doneScreen(o) {
+  show("stepsCard", false); show("action", false); show("doneCard");
+  const ok = o.status === "filled", wait = o.status === "submitted";
+  $("doneIcon").textContent = ok ? "✅" : wait ? "⏳" : "❌";
+  $("doneTitle").textContent = ok ? `You bought ${Number(o.qty ?? 0).toFixed(6)} ${o.ticker}`
+    : wait ? "Sent, waiting for the chain" : "The buy didn't go through";
+  $("doneText").textContent = ok ? `For $${o.amount}, in your own wallet. We posted it in your club chat.`
+    : wait ? "We'll post the result in your club chat." : (o.error ?? "Nothing was bought.");
+  show("doneLink", !!o.txHash); if (o.txHash) $("doneLink").href = `https://bscscan.com/tx/${o.txHash}`;
+  if (ok) tg?.HapticFeedback?.notificationOccurred("success");
+}
+$("btnClose").onclick = () => (tg?.close ? tg.close() : window.close());
+
+// ---- flow ----
 async function load() {
   try {
     order = await api("order");
     $("title").textContent = `Buy $${order.amount} of ${order.ticker}`;
-    $("summary").innerHTML = `Your club voted yes. This buys <b>$${order.amount}</b> of <b>${order.ticker}</b>
-      (${order.platform === "bstock" ? "bStocks" : "Ondo"}) with USDT, in your own wallet.`;
-    if (order.status === "pending") show("connectBox");
-    else say(`This buy is already <b>${order.status}</b>.` + (order.txHash ? ` <a href="https://bscscan.com/tx/${order.txHash}">BscScan</a>` : ""));
-  } catch (e) { $("title").textContent = "Can't open this buy"; $("summary").textContent = e.message; }
+    $("summary").textContent = `Your club voted yes. This buys it with USDT (${order.platform === "bstock" ? "bStocks" : "Ondo"}), in your own wallet.`;
+    if (order.status === "expired") { step("connect", "fail"); return screen("This Buy link has expired.", "Buy links last 2 hours after the vote."); }
+    if (order.status !== "pending") return doneScreen(order);
+    step("connect", "active");
+    screen("Connect the wallet that holds your USDT and a little BNB (BNB Smart Chain).", "",
+      { label: "Connect wallet", onClick: () => { log("open-modal"); wc?.open(); } });
+  } catch (e) {
+    $("title").textContent = "Can't open this buy"; $("summary").textContent = e.message; show("stepsCard", false); show("action", false);
+  }
+}
+
+async function makePlan() {
+  step("connect", "done"); step("allow", ""); step("buy", "active");
+  screen(waiting("Getting a price from Binance…"));
+  try {
+    plan = await api("plan", { wallet });
+    if (plan.approve) {
+      show("s-allow"); NUM.buy = "3"; NUM.done = "4"; step("allow", "active"); step("buy", ""); step("done", "");
+    }
+    const info = `You get about <b>${plan.expectedQty.toFixed(6)} ${order.ticker}</b> (at least ${plan.minQty.toFixed(6)}).<br>
+      Wallet <code>${wallet.slice(0, 6)}…${wallet.slice(-4)}</code>: ${plan.balances.usdt.toFixed(2)} USDT, ${plan.balances.bnb.toFixed(5)} BNB.`;
+    if (plan.approve) screen(`First, allow the buy to use <b>exactly $${order.amount} USDT</b> (not more).`, info, { label: "Allow USDT", onClick: allow });
+    else screen(`Ready to buy <b>$${order.amount} of ${order.ticker}</b>.`, info, { label: "Buy", onClick: buy });
+  } catch (e) {
+    screen(`<span class="bad">${e.message}</span>`, "", { label: "Try again", onClick: makePlan });
+  }
+}
+
+// Asks the wallet, then waits for whichever comes first: the wallet's answer, or the chain showing it happened.
+// On a phone the page freezes while you're in the wallet app, so the wallet's answer often never arrives.
+function untilDone(ask, checkChain) {
+  return new Promise((resolve, reject) => {
+    let over = false, walletFailedAt = 0;
+    const t0 = Date.now();
+    const end = (fn, v) => { if (over) return; over = true; clearInterval(iv); document.removeEventListener("visibilitychange", onVis); fn(v); };
+    ask.then((hash) => end(resolve, { hash }), (e) => {
+      const msg = `${e?.code ?? ""} ${e?.message ?? e}`;
+      log("request-error", msg);
+      if (/reject|denied|cancel/i.test(msg) || e?.code === 4001 || e?.code === 5000) end(reject, new Error("You said no in your wallet."));
+      else walletFailedAt = Date.now(); // e.g. "Request expired": it may still have gone through, so keep checking the chain a bit
+    });
+    const tick = async () => {
+      try { const r = await checkChain(); if (r) return end(resolve, r); } catch {}
+      if (walletFailedAt && Date.now() - walletFailedAt > 45_000) end(reject, new Error("Your wallet didn't confirm in time."));
+      else if (Date.now() - t0 > 20 * 60_000) end(reject, new Error("We didn't see it on the chain after 20 minutes."));
+    };
+    const iv = setInterval(tick, 3000);
+    const onVis = () => { if (!document.hidden) tick(); }; // check right away when you come back
+    document.addEventListener("visibilitychange", onVis);
+  });
+}
+
+async function allow() {
+  log("request-start", "allow USDT");
+  screen("Approve in <b>Binance Wallet</b>, then come back to Telegram.",
+    waiting("Watching the chain for your approval. This page updates by itself."), openWallet);
+  try {
+    await untilDone(wc.send({ from: wallet, ...plan.approve }),
+      async () => (await api("approved", null, { wallet, spender: plan.spender })).ok);
+    log("allow-ok");
+    step("allow", "done"); step("buy", "active");
+    screen("✅ USDT allowed. Now confirm the buy.", "", { label: "Buy", onClick: buy });
+  } catch (e) { failed(e.message); }
+}
+
+async function buy() {
+  log("request-start", "buy");
+  screen("Confirm the buy in <b>Binance Wallet</b>, then come back to Telegram.",
+    waiting("Watching the chain for your buy. This page updates by itself."), openWallet);
+  try {
+    await api("watch", { wallet, router: plan.tx.to }); // the server watches too, and tells the group even if you never come back
+    const r = await untilDone(wc.send({ from: wallet, ...plan.tx }), async () => {
+      const o = await api("order"); return o.status !== "pending" ? o : null;
+    });
+    log("buy-seen", r.hash ?? r.status);
+    if (r.hash) await api("sent", { wallet, txHash: r.hash }).catch(() => {});
+    step("buy", "done");
+    screen(waiting("Sent! Waiting for the chain to confirm…"));
+    for (let i = 0; i < 60; i++) {
+      const o = await api("order").catch(() => null);
+      if (o && o.status !== "pending" && o.status !== "submitted") return doneScreen(o);
+      await sleep(2000);
+    }
+    doneScreen(await api("order"));
+  } catch (e) { failed(e.message); }
 }
 
 // Wallet connection: Reown AppKit (WalletConnect's official modal), bundled in /wallet.js.
-let wc;
 async function startWallet() {
   const { walletConnectProjectId } = await api("config");
   wc = window.SCWallet.initWallet(walletConnectProjectId, (address) => {
     log("account", address ?? "none");
-    if (address && address !== wallet) {
-      wallet = address;
-      show("connectBox", false);
-      say(`Connected: <code>${wallet}</code>`, "ok");
-      makePlan();
-    }
+    if (address && address !== wallet && order?.status === "pending") { wallet = address; makePlan(); }
   });
 }
 
-$("btnConnect").onclick = () => { log("open-modal"); wc?.open(); };
-
-async function makePlan() {
-  show("buyBox"); $("plan").textContent = "Getting a price from Binance…"; $("btnBuy").disabled = true;
-  try {
-    plan = await api("plan", { wallet });
-    $("plan").innerHTML = `You get about <b>${plan.expectedQty.toFixed(6)} ${order.ticker}</b> (at least ${plan.minQty.toFixed(6)}).<br>
-      Wallet: ${plan.balances.usdt.toFixed(2)} USDT, ${plan.balances.bnb.toFixed(5)} BNB.<br>
-      ${plan.approve ? "Your wallet will ask <b>twice</b>: first to allow this USDT amount, then to buy." : "Your wallet will ask once to confirm."}`;
-    $("btnBuy").disabled = false;
-  } catch (e) { $("plan").innerHTML = `<span class="bad">${e.message}</span>`; }
-}
-
-// Our server checks the chain (we don't rely on the wallet connection for reads).
-async function waitReceipt(hash) {
-  for (let i = 0; i < 60; i++) {
-    const r = await fetch(`/api/receipt?t=${encodeURIComponent(t)}&h=${hash}`).then((x) => x.json()).catch(() => null);
-    if (r?.status) return r;
-    await new Promise((res) => setTimeout(res, 3000));
-  }
-  throw new Error("Approval not confirmed after 3 minutes");
-}
-
-// Link to bring the wallet app forward for a pending request. Prefer what the wallet told us in its
-// session metadata; fall back to Binance's universal link from WalletConnect's directory.
-function walletLink() { return BINANCE_WC; }
-
-// Sends one request to the wallet and shows a button to open the wallet (apps only open from a tap in Telegram).
-async function walletRequest(label, tx) {
-  log("request-start", label);
-  show("btnConfirm"); $("btnConfirm").textContent = `Open Binance Wallet to confirm (${label})`;
-  try {
-    const h = await wc.send({ from: wallet, ...tx });
-    log("request-ok", `${label} ${h}`);
-    return h;
-  } catch (e) {
-    log("request-error", `${label} code=${e?.code} msg=${e?.message} data=${JSON.stringify(e?.data ?? null)}`);
-    throw e;
-  } finally { show("btnConfirm", false); }
-}
-
-async function buy() {
-  $("btnBuy").disabled = true;
-  try {
-    if (plan.approve) {
-      say("Step 1 of 2: tap <b>Open Binance Wallet to confirm</b> and allow USDT.");
-      const h = await walletRequest("allow USDT", plan.approve);
-      say("Waiting for the approval to confirm…");
-      const r = await waitReceipt(h);
-      if (r.status !== "0x1") throw new Error("The approval failed.");
-    }
-    say(`${plan.approve ? "Step 2 of 2: " : ""}tap <b>Open Binance Wallet to confirm</b> and approve the buy.`);
-    const hash = await walletRequest("buy", plan.tx);
-    await api("sent", { wallet, txHash: hash });
-    say(`✅ Sent! I'll post the result in your club chat when it confirms.<br><a href="https://bscscan.com/tx/${hash}">View on BscScan</a>`, "ok");
-    show("buyBox", false);
-    tg?.HapticFeedback?.notificationOccurred("success");
-  } catch (e) {
-    say(`❌ ${e.message}. Nothing was bought. You can try again.`, "bad");
-    await makePlan(); // prices move; get a fresh one
-  }
-}
-
-$("btnConfirm").onclick = () => { const u = walletLink(); log("open-confirm-tap", u); openLink(u); };
-$("btnBuy").onclick = buy;
-load();
-startWallet().catch((e) => { log("init-error", e?.message); say("Couldn't load the wallet connector: " + e?.message, "bad"); });
+await load();
+startWallet().catch((e) => { log("init-error", e?.message); screen(`<span class="bad">Couldn't load the wallet connector: ${e?.message}</span>`); });
 </script>
 </body>
 </html>

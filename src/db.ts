@@ -176,7 +176,7 @@ export function createOrder(proposalId: number, memberId: number, mode: "tap" | 
 
 export type TapOrder = {
   id: number; proposal_id: number; member_id: number; amount_usd: number; status: string; tx_hash: string | null;
-  tap_token: string; wallet_address: string | null; ticker: string; token_address: string; platform: string;
+  qty: string | null; error: string | null; tap_token: string; wallet_address: string | null; ticker: string; token_address: string; platform: string;
   member_name: string; telegram_user_id: number; telegram_chat_id: number; created_at: string;
 };
 
