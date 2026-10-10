@@ -71,6 +71,12 @@
   .hero .k { font-size: 12px; color: var(--muted); font-weight: 600; } .hero .v { font-size: 20px; font-weight: 800; }
   .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
   .stat { background: rgba(255,255,255,.03); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+  .tiles2 { display: grid; grid-template-columns: 1.15fr 1fr; gap: 8px; margin-top: 10px; }
+  .tiles2 > div { padding: 12px; border-radius: 14px; background: rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.07); }
+  .tiles2 small { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .tiles2 b { font-size: 18px; font-weight: 800; }
+  .segm { display: flex; gap: 3px; } .segm i { width: 5px; height: 18px; border-radius: 2px; background: #2a313b; }
+  .segm i.on { background: linear-gradient(180deg, #ffd84f, #d99e05); }
   .gapcard { margin-top: 14px; padding: 14px; border-radius: 16px; background: rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.07); cursor: pointer; }
   .gapcard .k { font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
   .gapbadge { font-size: 17px; font-weight: 800; padding: 7px 11px; border-radius: 12px; }
@@ -78,6 +84,15 @@
   .meter { position: relative; height: 8px; border-radius: 6px; background: #1b2028; margin: 14px 0 8px; overflow: visible; }
   .meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; background: linear-gradient(90deg, #16c784, #f0b90b 70%, #f04d63); }
   .meter span { position: absolute; top: -4px; bottom: -4px; width: 2px; background: #eef0f3; border-radius: 2px; }
+  .cap { display: flex; border-radius: 14px; overflow: hidden; border: 1px solid var(--line2); background: var(--card2); }
+  .cap .half { position: relative; display: flex; align-items: center; gap: 7px; padding: 7px 10px; }
+  .cap small { display: block; font-size: 9px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; line-height: 1.1; }
+  .cap b { display: block; font-size: 12.5px; font-weight: 800; line-height: 1.2; }
+  .cap .ws { color: #8a929d; } .cap .ws small { color: #5d6672; }
+  .cap .ws.open { color: var(--up); }
+  .cap .oc { color: #15120a; background: linear-gradient(180deg, #ffd84f, #e9ae05); }
+  .cap .oc small { color: rgba(21,18,10,.6); }
+  .cap .pulse { position: absolute; right: 6px; top: 6px; width: 6px; height: 6px; border-radius: 50%; background: #15120a; animation: blink 1.6s ease-in-out infinite; }
   .mkt { display: grid; gap: 3px; text-align: right; }
   .mkt > div { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
   .mk { font-size: 9.5px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #5d6672; }
@@ -249,9 +264,9 @@
 <div class="view on" id="v-home"><div class="wrap">
   <div class="row between">
     <div class="brand"><img src="/assets/mark-192.png" alt="" /><div class="col"><b>Stock Club</b><span class="muted" id="hello" style="font-size:12px">Tokenized stocks on BNB Chain</span></div></div>
-    <div class="mkt" id="mkt">
-      <div><span class="mk">NYSE</span><span class="mv" id="wsText"><i id="wsDot"></i>…</span></div>
-      <div><span class="mk">On-chain</span><span class="mv gold"><i class="on"></i>Live 24/7</span></div>
+    <div class="cap" id="mkt">
+      <div class="half ws" id="wsHalf"><svg class="ic sm"><use href="#i-moon" id="wsIcon"/></svg><span><small>Wall St</small><b id="wsText">…</b></span></div>
+      <div class="half oc"><svg class="ic sm"><use href="#i-zap"/></svg><span><small>On-chain</small><b>Live</b></span><i class="pulse"></i></div>
     </div>
   </div>
   <div class="tape"><div class="run num" id="tape"></div></div>
@@ -274,9 +289,9 @@
       <div class="meter"><i id="gcBar"></i><span id="gcLim"></span></div>
       <div class="muted" id="gcNote" style="font-size:11.5px">&nbsp;</div>
     </div>
-    <div class="row" style="gap:16px;margin-top:12px;flex-wrap:wrap">
-      <span class="muted" style="font-weight:700"><span class="live" style="display:inline-block;color:var(--up);margin-right:6px"></span><b class="num" id="stOpen" style="color:var(--fg)">–</b> of 15 trading on-chain now</span>
-      <span class="muted" style="font-weight:700">Avg gap <b class="num" id="stAvg" style="color:var(--fg)">–</b></span>
+    <div class="tiles2">
+      <div><small>Tradable on-chain now</small><div class="row between" style="margin-top:8px"><div class="segm" id="segm"></div><b class="num" id="stOpen">–</b></div></div>
+      <div><small>Average gap</small><div class="row" style="margin-top:6px;gap:8px"><svg class="ic sm gold"><use href="#i-gap"/></svg><b class="num" id="stAvg">–</b></div><div class="muted" style="font-size:11px">across the 15 we track</div></div>
     </div>
   </div>
 
@@ -463,7 +478,8 @@ async function loadMarkets() {
   market = await api("stocks");
   for (const s of market.stocks) if (s.logo) LOGOS[s.ticker] = s.logo;
   const ws = market.wallStreet;
-  $("wsText").innerHTML = `<i class="${ws.open ? "open" : "closed"}"></i>${ws.open ? "Open" : "Closed"}`;
+  $("wsText").textContent = ws.open ? "Open" : "Closed";
+  $("wsHalf").classList.toggle("open", ws.open); $("wsIcon").setAttribute("href", ws.open ? "#i-sun" : "#i-moon");
   $("heroIcon").setAttribute("href", ws.open ? "#i-sun" : "#i-moon");
   $("heroTitle").textContent = ws.open ? "Wall Street is open." : "Wall Street is closed. On-chain isn't.";
   $("heroText").innerHTML = ws.open ? "On-chain prices follow the real ones closely while the market is open. Watch the <b style='color:var(--fg)'>gap</b> after hours." : "Tokenized stocks trade 24/7. While the market sleeps, their price can drift from the last real price. That's the <b style='color:var(--fg)'>gap</b>.";
@@ -480,7 +496,9 @@ async function loadMarkets() {
   }
   const gaps = market.stocks.filter((s) => s.gapPct != null);
   $("stAvg").textContent = gaps.length ? `±${(gaps.reduce((t, s) => t + Math.abs(s.gapPct), 0) / gaps.length).toFixed(2)}%` : "–";
-  $("stOpen").textContent = market.stocks.filter((s) => s.tradable).length;
+  const nOpen = market.stocks.filter((s) => s.tradable).length;
+  $("stOpen").textContent = `${nOpen}/${market.stocks.length}`;
+  $("segm").innerHTML = market.stocks.map((s) => `<i class="${s.tradable ? "on" : ""}" title="${s.ticker}"></i>`).join("");
   $("tape").innerHTML = [...market.stocks, ...market.stocks].map((s) => `<span><b>${s.ticker}</b>$${fmt(s.onchain)} <i class="${(s.changePct ?? 0) >= 0 ? "up" : "down"}" style="font-style:normal">${pct(s.changePct)}</i></span>`).join("");
   renderList(); renderMovers();
 }
