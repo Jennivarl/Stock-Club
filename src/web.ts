@@ -4,7 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Api } from "grammy";
 import { getTapOrder, updateTapOrder, type TapOrder } from "./db.js";
-import { blockNumber, confirmBuy, findBuyTx, isApproved, planBuy, receiptStatus, sentCount } from "./trading.js";
+import { blockNumber, confirmBuy, findBuyTx, isApproved, planBuy, planSell, receiptStatus, sentCount, USDT } from "./trading.js";
+import { isTradable, quotesFor } from "./rwa.js";
 
 const PORT = Number(process.env.WEB_PORT ?? 8080);
 const PUBLIC = path.resolve("public");
@@ -46,7 +47,7 @@ export function startWeb(api: Api) {
       if (req.method === "GET" && url.pathname === "/api/order") {
         return send(res, 200, {
           ticker: order!.ticker, amount: order!.amount_usd, status: order!.status, name: order!.member_name,
-          token: order!.token_address, platform: order!.platform, txHash: order!.tx_hash, qty: order!.qty, error: order!.error,
+          token: order!.token_address, platform: order!.platform, txHash: order!.tx_hash, qty: order!.qty, error: order!.error, side: order!.side,
         });
       }
 
@@ -68,24 +69,28 @@ export function startWeb(api: Api) {
         const { wallet } = await readJson(req);
         if (!isAddr(wallet)) return send(res, 400, { error: "Bad wallet address." });
         try {
-          return send(res, 200, await planBuy(wallet, order!.token_address, order!.amount_usd));
+          if (order!.side === "buy") return send(res, 200, await planBuy(wallet, order!.token_address, order!.amount_usd));
+          const tokens = (await quotesFor(order!.ticker)).filter(isTradable)
+            .map((q) => ({ address: q.tokenContractAddress, platform: q.platformId, price: q.tokenPrice }));
+          if (!tokens.length) return send(res, 422, { error: `Nobody is trading ${order!.ticker} right now. Try again later.` });
+          return send(res, 200, await planSell(wallet, order!.ticker, tokens));
         } catch (e: any) {
           return send(res, 422, { error: e.message ?? String(e) });
         }
       }
 
       if (req.method === "GET" && url.pathname === "/api/approved") {
-        const wallet = url.searchParams.get("wallet"), spender = url.searchParams.get("spender");
-        if (!isAddr(wallet) || !isAddr(spender)) return send(res, 400, { error: "Bad address." });
-        return send(res, 200, { ok: await isApproved(wallet, spender, order!.amount_usd) });
+        const [wallet, spender, token, amount] = ["wallet", "spender", "token", "amount"].map((k) => url.searchParams.get(k));
+        if (!isAddr(wallet) || !isAddr(spender) || !isAddr(token) || !/^\d{1,78}$/.test(amount ?? "")) return send(res, 400, { error: "Bad request." });
+        return send(res, 200, { ok: await isApproved(wallet, spender, token, BigInt(amount!)) });
       }
 
       // The page is about to ask the wallet for the buy. We watch the chain ourselves, because on a phone
       // the page often freezes while the user is in the wallet app and never gets the wallet's answer.
       if (req.method === "POST" && url.pathname === "/api/watch") {
-        const { wallet, router } = await readJson(req);
-        if (!isAddr(wallet) || !isAddr(router)) return send(res, 400, { error: "Bad address." });
-        watchForBuy(api, order!, wallet, router);
+        const { wallet, router, token } = await readJson(req);
+        if (!isAddr(wallet) || !isAddr(router) || !isAddr(token)) return send(res, 400, { error: "Bad address." });
+        watchForBuy(api, order!, wallet, router, token);
         return send(res, 200, { ok: true });
       }
 
@@ -111,18 +116,24 @@ async function finishBuy(api: Api, order: TapOrder, wallet: string, txHash: stri
   if (finishing.has(order.id) || getTapOrder(order.tap_token)?.status !== "pending") return;
   finishing.add(order.id);
   updateTapOrder(order.id, { status: "submitted", txHash, wallet });
-  const r = await confirmBuy(txHash, wallet, order.token_address);
+  const sell = order.side === "sell";
+  // qty = what reached the wallet: stock tokens for a buy, USDT for a sell.
+  const r = await confirmBuy(txHash, wallet, sell ? USDT : order.token_address);
   updateTapOrder(order.id, { status: r.ok ? "filled" : "failed", qty: r.qty?.toString(), error: r.error });
   const link = `<a href="https://bscscan.com/tx/${txHash}">BscScan</a>`;
-  const text = r.ok
-    ? `✅ ${esc(order.member_name)} bought ${(r.qty ?? 0).toFixed(6)} ${esc(order.ticker)} for $${order.amount_usd} (tap to buy) · ${link}`
-    : `❌ ${esc(order.member_name)}'s ${esc(order.ticker)} buy didn't go through: ${esc(r.error ?? "")} · ${link}`;
+  const name = esc(order.member_name), ticker = esc(order.ticker);
+  const text = !r.ok
+    ? `❌ ${name}'s ${ticker} ${sell ? "sale" : "buy"} didn't go through: ${esc(r.error ?? "")} · ${link}`
+    : sell
+      ? `✅ ${name} sold their ${ticker} for ${(r.qty ?? 0).toFixed(2)} USDT (tap to sell) · ${link}`
+      : `✅ ${name} bought ${(r.qty ?? 0).toFixed(6)} ${ticker} for $${order.amount_usd} (tap to buy) · ${link}`;
   await api.sendMessage(order.telegram_chat_id, text, { parse_mode: "HTML", link_preview_options: { is_disabled: true } }).catch(() => {});
 }
 
-// Every 3 s for up to 30 min: if the wallet sent a new transaction, look for our buy in the new blocks.
+// Every 3 s for up to 30 min: if the wallet sent a new transaction, look for our trade in the new blocks.
+// `token` = the stock token being bought or sold; the router call data contains its address.
 const watching = new Set<number>();
-async function watchForBuy(api: Api, order: TapOrder, wallet: string, router: string) {
+async function watchForBuy(api: Api, order: TapOrder, wallet: string, router: string, token: string) {
   if (watching.has(order.id)) return;
   watching.add(order.id);
   try {
@@ -133,7 +144,7 @@ async function watchForBuy(api: Api, order: TapOrder, wallet: string, router: st
       try {
         const [now, head] = [await sentCount(wallet), await blockNumber()];
         if (now > count) {
-          const hash = await findBuyTx(wallet, router, order.token_address, checked - 2, head);
+          const hash = await findBuyTx(wallet, router, token, checked - 2, head);
           if (hash) {
             console.log("watch found buy", order.id, hash);
             return await finishBuy(api, order, wallet, hash);

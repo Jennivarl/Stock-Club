@@ -107,7 +107,7 @@ const openLink = (u) => (tg?.openLink ? tg.openLink(u) : window.open(u, "_blank"
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const BINANCE_WC = "https://app.binance.com/cedefi"; // Binance Wallet's link from WalletConnect's wallet directory
 
-let wallet, plan, order, wc;
+let wallet, plan, order, wc, sell = false;
 
 // Send what happens on the phone to our server log, so we see real errors instead of guessing.
 function log(event, detail = "") {
@@ -147,10 +147,10 @@ function doneScreen(o) {
   show("stepsCard", false); show("action", false); show("doneCard");
   const ok = o.status === "filled", wait = o.status === "submitted";
   $("doneIcon").textContent = ok ? "✅" : wait ? "⏳" : "❌";
-  $("doneTitle").textContent = ok ? `You bought ${Number(o.qty ?? 0).toFixed(6)} ${o.ticker}`
-    : wait ? "Sent, waiting for the chain" : "The buy didn't go through";
-  $("doneText").textContent = ok ? `For $${o.amount}, in your own wallet. We posted it in your club chat.`
-    : wait ? "We'll post the result in your club chat." : (o.error ?? "Nothing was bought.");
+  $("doneTitle").textContent = ok ? (sell ? `You sold your ${o.ticker} for ${Number(o.qty ?? 0).toFixed(2)} USDT` : `You bought ${Number(o.qty ?? 0).toFixed(6)} ${o.ticker}`)
+    : wait ? "Sent, waiting for the chain" : `The ${sell ? "sale" : "buy"} didn't go through`;
+  $("doneText").textContent = ok ? `${sell ? "In" : `For $${o.amount}, in`} your own wallet. We posted it in your club chat.`
+    : wait ? "We'll post the result in your club chat." : (o.error ?? "Nothing happened.");
   show("doneLink", !!o.txHash); if (o.txHash) $("doneLink").href = `https://bscscan.com/tx/${o.txHash}`;
   if (ok) tg?.HapticFeedback?.notificationOccurred("success");
 }
@@ -160,12 +160,20 @@ $("btnClose").onclick = () => (tg?.close ? tg.close() : window.close());
 async function load() {
   try {
     order = await api("order");
-    $("title").textContent = `Buy $${order.amount} of ${order.ticker}`;
-    $("summary").textContent = `Your club voted yes. This buys it with USDT (${order.platform === "bstock" ? "bStocks" : "Ondo"}), in your own wallet.`;
+    sell = order.side === "sell";
+    if (sell) {
+      $("title").textContent = `Sell your ${order.ticker}`;
+      $("summary").textContent = `Your club voted yes. This sells all your ${order.ticker} for USDT, in your own wallet.`;
+      $("s-allow").lastChild.textContent = `Allow ${order.ticker} for this sale`;
+      $("s-buy").lastChild.textContent = "Confirm the sale";
+    } else {
+      $("title").textContent = `Buy $${order.amount} of ${order.ticker}`;
+      $("summary").textContent = `Your club voted yes. This buys it with USDT (${order.platform === "bstock" ? "bStocks" : "Ondo"}), in your own wallet.`;
+    }
     if (order.status === "expired") { step("connect", "fail"); return screen("This Buy link has expired.", "Buy links last 2 hours after the vote."); }
     if (order.status !== "pending") return doneScreen(order);
     step("connect", "active");
-    screen("Connect the wallet that holds your USDT and a little BNB (BNB Smart Chain).", "",
+    screen(`Connect the wallet that holds your ${sell ? order.ticker : "USDT"} and a little BNB (BNB Smart Chain).`, "",
       { label: "Connect wallet", onClick: () => { log("open-modal"); wc?.open(); } });
   } catch (e) {
     $("title").textContent = "Can't open this buy"; $("summary").textContent = e.message; show("stepsCard", false); show("action", false);
@@ -180,10 +188,18 @@ async function makePlan() {
     if (plan.approve) {
       show("s-allow"); NUM.buy = "3"; NUM.done = "4"; step("allow", "active"); step("buy", ""); step("done", "");
     }
-    const info = `You get about <b>${plan.expectedQty.toFixed(6)} ${order.ticker}</b> (at least ${plan.minQty.toFixed(6)}).<br>
-      Wallet <code>${wallet.slice(0, 6)}…${wallet.slice(-4)}</code>: ${plan.balances.usdt.toFixed(2)} USDT, ${plan.balances.bnb.toFixed(5)} BNB.`;
-    if (plan.approve) screen(`First, allow the buy to use <b>exactly $${order.amount} USDT</b> (not more).`, info, { label: "Allow USDT", onClick: allow });
-    else screen(`Ready to buy <b>$${order.amount} of ${order.ticker}</b>.`, info, { label: "Buy", onClick: buy });
+    const wl = `Wallet <code>${wallet.slice(0, 6)}…${wallet.slice(-4)}</code>: ${plan.balances.usdt.toFixed(2)} USDT, ${plan.balances.bnb.toFixed(5)} BNB.`;
+    const info = sell
+      ? `You sell <b>${plan.fromQty.toFixed(6)} ${order.ticker}</b> and get about <b>${plan.expectedQty.toFixed(2)} USDT</b> (at least ${plan.minQty.toFixed(2)}).<br>${wl}`
+      : `You get about <b>${plan.expectedQty.toFixed(6)} ${order.ticker}</b> (at least ${plan.minQty.toFixed(6)}).<br>${wl}`;
+    if (plan.approve) {
+      screen(sell ? `First, allow the sale to use <b>exactly ${plan.fromQty.toFixed(6)} ${order.ticker}</b> (not more).`
+        : `First, allow the buy to use <b>exactly $${order.amount} USDT</b> (not more).`,
+        info, { label: `Allow ${sell ? order.ticker : "USDT"}`, onClick: allow });
+    } else {
+      screen(sell ? `Ready to sell <b>all your ${order.ticker}</b>.` : `Ready to buy <b>$${order.amount} of ${order.ticker}</b>.`,
+        info, sell ? { label: "Sell", onClick: buy } : { label: "Buy", onClick: buy });
+    }
   } catch (e) {
     screen(`<span class="bad">${e.message}</span>`, "", { label: "Try again", onClick: makePlan });
   }
@@ -219,23 +235,26 @@ async function allow() {
     waiting("Watching the chain for your approval. This page updates by itself."), openWallet);
   try {
     await untilDone(wc.send({ from: wallet, ...plan.approve }),
-      async () => (await api("approved", null, { wallet, spender: plan.spender })).ok);
+      async () => (await api("approved", null, { wallet, spender: plan.spender, token: plan.fromToken, amount: plan.amountRaw })).ok);
     log("allow-ok");
     step("allow", "done"); step("buy", "active");
-    screen("✅ USDT allowed. Now confirm the buy.", "", { label: "Buy", onClick: buy });
+    screen(sell ? `✅ ${order.ticker} allowed. Now confirm the sale.` : "✅ USDT allowed. Now confirm the buy.", "",
+      { label: sell ? "Sell" : "Buy", onClick: buy });
   } catch (e) { failed(e.message); }
 }
 
 async function buy() {
-  log("request-start", "buy");
-  screen("Confirm the buy in <b>Binance Wallet</b>, then come back to Telegram.",
-    waiting("Watching the chain for your buy. This page updates by itself."), openWallet);
+  const word = sell ? "sale" : "buy";
+  log("request-start", word);
+  screen(`Confirm the ${word} in <b>Binance Wallet</b>, then come back to Telegram.`,
+    waiting(`Watching the chain for your ${word}. This page updates by itself.`), openWallet);
   try {
-    await api("watch", { wallet, router: plan.tx.to }); // the server watches too, and tells the group even if you never come back
+    // The server watches too, and tells the group even if you never come back.
+    await api("watch", { wallet, router: plan.tx.to, token: sell ? plan.fromToken : order.token });
     const r = await untilDone(wc.send({ from: wallet, ...plan.tx }), async () => {
       const o = await api("order"); return o.status !== "pending" ? o : null;
     });
-    log("buy-seen", r.hash ?? r.status);
+    log(`${word}-seen`, r.hash ?? r.status);
     if (r.hash) await api("sent", { wallet, txHash: r.hash }).catch(() => {});
     step("buy", "done");
     screen(waiting("Sent! Waiting for the chain to confirm…"));

@@ -36,22 +36,33 @@ export async function balances(wallet: string) {
 export type BuyPlan = {
   mode: "SWAP";
   vendor: string;
-  expectedQty: number;
-  minQty: number;
-  spender: string; // the router that takes the USDT
-  approve?: { to: string; data: string; gas: string }; // only if USDT allowance is too low
+  fromToken: string;      // what the wallet gives (USDT for a buy, the stock token for a sell)
+  fromQty: number;
+  amountRaw: string;      // fromQty in the token's smallest unit
+  expectedQty: number;    // what the wallet gets, about
+  minQty: number;         // ...and at least
+  spender: string;        // the router that takes fromToken
+  approve?: { to: string; data: string; gas: string }; // only if the allowance is too low
   tx: { to: string; data: string; value: string; gas: string };
   balances: { bnb: number; usdt: number };
 };
 
-// Returns what the wallet must send. Throws a plain-words Error when it can't buy.
-export async function planBuy(wallet: string, token: string, usd: number): Promise<BuyPlan> {
-  const amount = toWei(usd);
-  const base = { binanceChainId: "56", amount, fromTokenAddress: USDT, toTokenAddress: token, userWalletAddress: wallet };
-  const bal = await balances(wallet);
-  if (bal.usdt < usd) throw new Error(`Your wallet has ${bal.usdt.toFixed(2)} USDT on BNB Smart Chain. You need ${usd}.`);
-  if (bal.bnb < 0.0003) throw new Error(`Your wallet needs a little BNB on BNB Smart Chain for the network fee (has ${bal.bnb.toFixed(5)}).`);
+const decimalsCache = new Map<string, number>();
+export async function decimals(token: string): Promise<number> {
+  const k = token.toLowerCase();
+  if (!decimalsCache.has(k)) decimalsCache.set(k, Number(await erc20(token, "0x313ce567"))); // decimals()
+  return decimalsCache.get(k)!;
+}
 
+export async function tokenBalance(wallet: string, token: string): Promise<{ raw: bigint; qty: number }> {
+  const [raw, d] = await Promise.all([erc20(token, "0x70a08231" + pad(wallet)), decimals(token)]);
+  return { raw, qty: Number(raw) / 10 ** d };
+}
+
+// Asks Binance for a swap route and the transaction to send. Throws a plain-words Error when it can't.
+async function planSwap(wallet: string, from: string, to: string, amountRaw: bigint, bal: BuyPlan["balances"]): Promise<BuyPlan> {
+  if (bal.bnb < 0.0003) throw new Error(`Your wallet needs a little BNB on BNB Smart Chain for the network fee (has ${bal.bnb.toFixed(5)}).`);
+  const base = { binanceChainId: "56", amount: amountRaw.toString(), fromTokenAddress: from, toTokenAddress: to, userWalletAddress: wallet };
   const q: any = await signedGet("/api/v1/dex/aggregator/quote", base);
   const quotes: any[] = q.data ?? [];
   // bStocks came back as normal SWAP routes in our tests, even though the docs say equity tokens use RFQ.
@@ -64,19 +75,23 @@ export async function planBuy(wallet: string, token: string, usd: number): Promi
   const tx = s.data?.tx;
   if (s.data?.executionMode !== "SWAP" || !tx?.to || !tx?.data) throw new Error("Binance didn't return a transaction to send. Try again.");
 
-  // The router needs permission to take the USDT. Approve only this buy's amount, not unlimited.
+  // The router needs permission to take the tokens. Approve only this amount, not unlimited.
   const spender = quote.approveTarget ?? tx.to;
-  const allowance = await erc20(USDT, "0xdd62ed3e" + pad(wallet) + pad(spender)); // allowance(owner, spender)
+  const allowance = await erc20(from, "0xdd62ed3e" + pad(wallet) + pad(spender)); // allowance(owner, spender)
   const approve =
-    allowance < BigInt(amount)
-      ? { to: USDT, data: "0x095ea7b3" + pad(spender) + BigInt(amount).toString(16).padStart(64, "0"), gas: "0x" + (80_000).toString(16) }
+    allowance < amountRaw
+      ? { to: from, data: "0x095ea7b3" + pad(spender) + amountRaw.toString(16).padStart(64, "0"), gas: "0x" + (80_000).toString(16) }
       : undefined;
 
+  const [dFrom, dTo] = await Promise.all([decimals(from), decimals(to)]);
   return {
     mode: "SWAP",
     vendor: quote.vendorName,
-    expectedQty: Number(quote.toTokenAmount) / 1e18,
-    minQty: Number(tx.minReceiveAmount ?? 0) / 1e18,
+    fromToken: from,
+    fromQty: Number(amountRaw) / 10 ** dFrom,
+    amountRaw: amountRaw.toString(),
+    expectedQty: Number(quote.toTokenAmount) / 10 ** dTo,
+    minQty: Number(tx.minReceiveAmount ?? 0) / 10 ** dTo,
     spender,
     approve,
     tx: { to: tx.to, data: tx.data, value: "0x" + BigInt(tx.value ?? 0).toString(16), gas: "0x" + BigInt(tx.gas ?? 450000).toString(16) },
@@ -84,15 +99,34 @@ export async function planBuy(wallet: string, token: string, usd: number): Promi
   };
 }
 
-// True once the wallet has allowed the router to take this buy's USDT.
-export async function isApproved(wallet: string, spender: string, usd: number): Promise<boolean> {
-  return (await erc20(USDT, "0xdd62ed3e" + pad(wallet) + pad(spender))) >= BigInt(toWei(usd));
+export async function planBuy(wallet: string, token: string, usd: number): Promise<BuyPlan> {
+  const bal = await balances(wallet);
+  if (bal.usdt < usd) throw new Error(`Your wallet has ${bal.usdt.toFixed(2)} USDT on BNB Smart Chain. You need ${usd}.`);
+  return planSwap(wallet, USDT, token, BigInt(toWei(usd)), bal);
+}
+
+// Sells everything the wallet holds of this stock. `tokens` = the stock's tokens from each issuer, with prices.
+// If the wallet holds more than one issuer's token, it sells the one worth the most (one sale per vote).
+export const ONDO_MIN_USD = 5; // Trading API: "Minimum order amount is 5 USD" (code 40375)
+export async function planSell(wallet: string, ticker: string, tokens: { address: string; platform: string; price: number }[]): Promise<BuyPlan> {
+  const held = await Promise.all(tokens.map(async (t) => ({ ...t, ...(await tokenBalance(wallet, t.address)) })));
+  const pick = held.filter((h) => h.raw > 0n).sort((a, b) => b.qty * b.price - a.qty * a.price)[0];
+  if (!pick) throw new Error(`This wallet doesn't hold any ${ticker}, so there's nothing to sell.`);
+  if (pick.platform === "ondo" && pick.qty * pick.price < ONDO_MIN_USD) {
+    throw new Error(`Your ${ticker} is worth about $${(pick.qty * pick.price).toFixed(2)}. Ondo only takes sales of $${ONDO_MIN_USD} or more.`);
+  }
+  return planSwap(wallet, pick.address, USDT, pick.raw, await balances(wallet));
+}
+
+// True once the wallet has allowed the router to take this amount of the token.
+export async function isApproved(wallet: string, spender: string, token: string, amountRaw: bigint): Promise<boolean> {
+  return (await erc20(token, "0xdd62ed3e" + pad(wallet) + pad(spender))) >= amountRaw;
 }
 
 export const sentCount = async (wallet: string) => Number(await rpc<string>("eth_getTransactionCount", [wallet, "latest"]));
 export const blockNumber = async () => Number(await rpc<string>("eth_blockNumber", []));
 
-// Looks through blocks [from, to] for a tx the wallet sent to the router that buys this token.
+// Looks through blocks [from, to] for a tx the wallet sent to the router that trades this token.
 // (The public BSC node refuses log searches, so we read the blocks.)
 export async function findBuyTx(wallet: string, router: string, token: string, from: number, to: number): Promise<string | undefined> {
   const w = wallet.toLowerCase(), r = router.toLowerCase(), t = token.toLowerCase().replace(/^0x/, "");
@@ -110,7 +144,8 @@ export async function receiptStatus(txHash: string): Promise<string | null> {
   return r?.status ?? null; // "0x1" ok, "0x0" failed, null = not mined yet
 }
 
-// Waits for the buy tx, then reads how many stock tokens reached the wallet from the Transfer logs.
+// Waits for the tx, then reads how much of `token` reached the wallet from the Transfer logs
+// (the stock token for a buy, USDT for a sell).
 export async function confirmBuy(txHash: string, wallet: string, token: string, timeoutMs = 120_000): Promise<{ ok: boolean; qty?: number; error?: string }> {
   const until = Date.now() + timeoutMs;
   while (Date.now() < until) {

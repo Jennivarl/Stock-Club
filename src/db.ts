@@ -87,6 +87,9 @@ if (!orderCols.includes("qty")) db.exec("ALTER TABLE orders ADD COLUMN qty TEXT"
 // Secret in the Buy-page link for "tap to buy" orders.
 if (!orderCols.includes("tap_token")) db.exec("ALTER TABLE orders ADD COLUMN tap_token TEXT");
 if (!orderCols.includes("wallet_address")) db.exec("ALTER TABLE orders ADD COLUMN wallet_address TEXT");
+// A vote can be to buy (amount_usd each) or to sell (each yes-voter sells all they hold; amount_usd = 0).
+const proposalCols = (db.prepare("PRAGMA table_info(proposals)").all() as { name: string }[]).map((c) => c.name);
+if (!proposalCols.includes("side")) db.exec("ALTER TABLE proposals ADD COLUMN side TEXT NOT NULL DEFAULT 'buy'");
 
 export type Club = { id: number; telegram_chat_id: number; name: string; created_by: number };
 export type Rules = {
@@ -141,7 +144,7 @@ export function setRule(clubId: number, column: keyof Rules, value: number | str
 export type Proposal = {
   id: number; club_id: number; proposer_id: number; ticker: string; amount_usd: number; status: string;
   platform: string | null; token_address: string | null; poll_id: string | null; poll_message_id: number | null;
-  note: string | null; created_at: string; closes_at: string;
+  note: string | null; created_at: string; closes_at: string; side: "buy" | "sell";
 };
 
 export function getMember(clubId: number, userId: number): Member | undefined {
@@ -176,7 +179,7 @@ export function createOrder(proposalId: number, memberId: number, mode: "tap" | 
 
 export type TapOrder = {
   id: number; proposal_id: number; member_id: number; amount_usd: number; status: string; tx_hash: string | null;
-  qty: string | null; error: string | null; tap_token: string; wallet_address: string | null; ticker: string; token_address: string; platform: string;
+  qty: string | null; error: string | null; tap_token: string; side: "buy" | "sell"; wallet_address: string | null; ticker: string; token_address: string; platform: string;
   member_name: string; telegram_user_id: number; telegram_chat_id: number; created_at: string;
 };
 
@@ -188,7 +191,7 @@ export function createTapOrder(proposalId: number, memberId: number, amount: num
 
 export function getTapOrder(token: string): TapOrder | undefined {
   return db.prepare(`
-    SELECT o.*, p.ticker, p.token_address, p.platform, m.name AS member_name, m.telegram_user_id, c.telegram_chat_id
+    SELECT o.*, p.ticker, p.token_address, p.platform, p.side, m.name AS member_name, m.telegram_user_id, c.telegram_chat_id
     FROM orders o JOIN proposals p ON p.id = o.proposal_id JOIN members m ON m.id = o.member_id JOIN clubs c ON c.id = p.club_id
     WHERE o.tap_token = ? AND o.mode = 'tap'`).get(token) as TapOrder | undefined;
 }

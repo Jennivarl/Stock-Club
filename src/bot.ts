@@ -29,6 +29,7 @@ const HELP = [
   "/rules - show club rules",
   "/price NVDA - live price card",
   "/propose NVDA 20 - vote on everyone buying $20 of NVDA",
+  "/propose sell NVDA - vote on selling: everyone who votes yes sells all their NVDA",
   "/stop - any member can pause the club",
   "/resume - un-pause (club creator)",
   "",
@@ -59,10 +60,12 @@ bot.command(["start", "help"], async (ctx) => {
   if (ctx.chat?.type === "private" && ctx.match.startsWith("buy_")) {
     const o = getTapOrder(ctx.match.slice(4));
     if (!o || o.telegram_user_id !== ctx.from?.id) return ctx.reply("This Buy link isn't for you or has expired.");
-    if (o.status !== "pending") return ctx.reply(`This buy is already ${o.status}.`);
-    return ctx.reply(`Buy <b>$${o.amount_usd} of ${esc(o.ticker)}</b> in your own wallet:`, {
+    const sell = o.side === "sell";
+    if (o.status !== "pending") return ctx.reply(`This ${sell ? "sale" : "buy"} is already ${o.status}.`);
+    const url = `${WEB_URL}/buy?t=${ctx.match.slice(4)}`;
+    return ctx.reply(sell ? `Sell all your <b>${esc(o.ticker)}</b> in your own wallet:` : `Buy <b>$${o.amount_usd} of ${esc(o.ticker)}</b> in your own wallet:`, {
       parse_mode: "HTML",
-      reply_markup: { inline_keyboard: [[{ text: `Buy $${o.amount_usd} ${o.ticker}`, web_app: { url: `${WEB_URL}/buy?t=${ctx.match.slice(4)}` } }]] },
+      reply_markup: { inline_keyboard: [[{ text: sell ? `Sell ${o.ticker}` : `Buy $${o.amount_usd} ${o.ticker}`, web_app: { url } }]] },
     });
   }
   await ctx.reply(HELP, { parse_mode: "HTML" });
@@ -220,13 +223,23 @@ bot.command("propose", async (ctx) => {
   if (!club) return ctx.reply("Run /propose inside a club group. No club yet? /club start");
   const member = getMember(club.id, ctx.from!.id);
   if (!member) return ctx.reply("Only members can propose. Tap /join first.");
-  const [rawTicker, rawAmount] = ctx.match.trim().split(/\s+/);
-  if (!rawTicker || !rawAmount) return ctx.reply("Use: /propose NVDA 20  (stock, then dollars per member)");
+  const args = ctx.match.trim().split(/\s+/).filter(Boolean);
+  // "/propose sell NVDA": every yes-voter sells all their NVDA. "/propose NVDA 20": everyone buys $20.
+  const side = args[0]?.toLowerCase() === "sell" ? "sell" : "buy";
+  if (side === "sell") args.shift();
+  else if (args[0]?.toLowerCase() === "buy") args.shift();
+  const [rawTicker, rawAmount] = args;
+  if (!rawTicker || (side === "buy" && !rawAmount)) {
+    return ctx.reply("Use: /propose NVDA 20  (stock, then dollars per member)\nor: /propose sell NVDA  (everyone who votes yes sells all of it)");
+  }
   const ticker = rawTicker.toUpperCase().replace(/[^A-Z.]/g, "");
-  const amount = Number(rawAmount.replace("$", ""));
+  const amount = side === "sell" ? 0 : Number(rawAmount.replace("$", ""));
   const rules = getRules(club.id);
 
-  const ruleNo = checkRules(rules, ticker, amount, member);
+  // Selling doesn't spend, so only the pause applies (not the trade/week limits or the allowed list).
+  const ruleNo = side === "sell"
+    ? (rules.paused ? "⛔ The club is paused (someone used /stop). Use /resume first." : null)
+    : checkRules(rules, ticker, amount, member);
   if (ruleNo) return ctx.reply(ruleNo, { parse_mode: "HTML" });
   if (getOpenProposalForTicker(club.id, ticker)) return ctx.reply(`There's already an open vote on ${ticker}. Vote on that one first.`);
 
@@ -237,12 +250,13 @@ bot.command("propose", async (ctx) => {
     console.error("propose price error", e);
     return ctx.reply("⚠️ Couldn't get prices from Binance right now. Try again in a minute.");
   }
-  const marketNo = checkMarket(card, rules, amount);
+  const marketNo = checkMarket(card, rules, amount, side);
   if (marketNo) return ctx.reply(marketNo, { parse_mode: "HTML" });
 
-  const p = createProposal(club.id, member.id, ticker, amount, rules.vote_hours);
+  const p = createProposal(club.id, member.id, ticker, amount, rules.vote_hours, side);
   await ctx.reply(proposalIntro(club, member, p, card, rules), { parse_mode: "HTML" });
-  const poll = await ctx.api.sendPoll(ctx.chat!.id, `Buy $${amount} of ${ticker} each?`, [{ text: "👍 Yes, I'm in" }, { text: "👎 No" }], {
+  const question = side === "sell" ? `Sell all your ${ticker}?` : `Buy $${amount} of ${ticker} each?`;
+  const poll = await ctx.api.sendPoll(ctx.chat!.id, question, [{ text: "👍 Yes, I'm in" }, { text: "👎 No" }], {
     is_anonymous: false,
   });
   attachPoll(p.id, poll.poll!.id, poll.message_id);

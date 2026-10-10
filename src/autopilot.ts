@@ -5,6 +5,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { db } from "./db.js";
+import { decimals, tokenBalance } from "./trading.js";
 
 const BAW_BIN = process.env.BAW_BIN ?? "/opt/stock-club/tools/node_modules/.bin/baw";
 const BAW_ROOT = process.env.BAW_ROOT ?? "/opt/stock-club/baw";
@@ -107,20 +108,47 @@ export type BuyResult = {
   error?: string;
 };
 
+const NOT_CONNECTED = "Autopilot isn't connected (the login may have expired). Send /autopilot to me in a private chat.";
+
 // Buys `usd` USDT worth of `token` for one member and waits for a final status.
-// We do NOT trust the orderId that `market-order swap` returns: on Oct 7 it returned an id that
-// `market-order list --orderId` never found (DX log). So we also match recent orders by token + time.
 export function buy(telegramUserId: number, token: string, usd: number): Promise<BuyResult> {
   return serial(async () => {
-    if (!(await isConnected(telegramUserId))) {
-      return { status: "skipped", error: "Autopilot isn't connected (the login may have expired). Send /autopilot to me in a private chat." };
-    }
+    if (!(await isConnected(telegramUserId))) return { status: "skipped", error: NOT_CONNECTED };
+    return swap(telegramUserId, USDT, token, String(usd));
+  });
+}
+
+// Sells all of the member's holding of this stock (the issuer token worth the most) for USDT.
+// qty in the result = USDT received. Not tested with a real sale yet.
+export function sellAll(telegramUserId: number, tokens: { address: string; price: number }[]): Promise<BuyResult & { soldQty?: number }> {
+  return serial(async () => {
+    if (!(await isConnected(telegramUserId))) return { status: "skipped", error: NOT_CONNECTED };
+    const { address } = await walletInfo(telegramUserId);
+    if (!address) return { status: "failed", error: "Couldn't read your Agentic Wallet address." };
+    const held = await Promise.all(tokens.map(async (t) => ({ ...t, ...(await tokenBalance(address, t.address)) })));
+    const pick = held.filter((h) => h.raw > 0n).sort((a, b) => b.qty * b.price - a.qty * a.price)[0];
+    if (!pick) return { status: "skipped", error: "holds none of it, nothing to sell." };
+    const r = await swap(telegramUserId, pick.address, USDT, formatUnits(pick.raw, await decimals(pick.address)));
+    return { ...r, soldQty: pick.qty };
+  });
+}
+
+// Exact decimal string, so "sell all" doesn't round up past the balance.
+function formatUnits(raw: bigint, decimals: number): string {
+  const s = raw.toString().padStart(decimals + 1, "0");
+  return (s.slice(0, -decimals) + "." + s.slice(-decimals)).replace(/\.?0+$/, "");
+}
+
+// We do NOT trust the orderId that `market-order swap` returns: on Oct 7 it returned an id that
+// `market-order list --orderId` never found (DX log). So we also match recent orders by token + time.
+async function swap(telegramUserId: number, fromToken: string, toToken: string, fromQty: string): Promise<BuyResult> {
+  {
     const startedAt = Date.now();
     const r = await baw(telegramUserId, [
       "market-order", "swap",
-      "--fromTokenQty", String(usd),
-      "--fromToken", USDT,
-      "--toToken", token,
+      "--fromTokenQty", fromQty,
+      "--fromToken", fromToken,
+      "--toToken", toToken,
       "--binanceChainId", BSC,
       "--slippage", "1",
     ]);
@@ -142,7 +170,7 @@ export function buy(telegramUserId: number, token: string, usd: number): Promise
       }
       // 2) Fallback: newest order for this token, booked after we started, not already matched to another buy.
       if (!order) {
-        const recent = await baw(telegramUserId, ["market-order", "list", "--binanceChainId", BSC, "--toToken", token, "--pageSize", "10"]);
+        const recent = await baw(telegramUserId, ["market-order", "list", "--binanceChainId", BSC, "--toToken", toToken, "--pageSize", "10"]);
         order = (recent.data?.list ?? []).find(
           (o: any) => !claimed.has(o.orderId) && new Date(o.bookTime).getTime() >= startedAt - 15_000,
         );
@@ -155,5 +183,5 @@ export function buy(telegramUserId: number, token: string, usd: number): Promise
       }
     }
     return { status: "submitted", returnedOrderId, error: "Submitted, but not confirmed after 60 s. It may still be processing." };
-  });
+  }
 }

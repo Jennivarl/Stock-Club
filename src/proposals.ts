@@ -4,7 +4,7 @@ import type { Api } from "grammy";
 import { createOrder, createTapOrder, db, finishOrder, getMembers, getRules, spentThisWeek, type Club, type Member, type Proposal, type Rules } from "./db.js";
 import { priceCard, type Card } from "./card.js";
 import { ISSUER_NAME, isTradable, type Quote } from "./rwa.js";
-import { autopilotAvailable, buy } from "./autopilot.js";
+import { autopilotAvailable, buy, sellAll } from "./autopilot.js";
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -31,21 +31,24 @@ export function checkRules(rules: Rules, ticker: string, amount: number, propose
 
 const ONDO_MIN_USD = 5;
 
-// Cheapest issuer that is trading AND accepts this amount (Ondo: "Minimum order amount is 5 USD").
-export function pickIssuer(card: Card, amount: number): Quote | undefined {
+// Buy: cheapest issuer that is trading AND accepts this amount (Ondo: "Minimum order amount is 5 USD").
+// Sell: the issuer paying the most (each member sells whichever token they actually hold).
+export function pickIssuer(card: Card, amount: number, side: "buy" | "sell" = "buy"): Quote | undefined {
+  if (side === "sell") return card.quotes.filter(isTradable).sort((a, b) => b.sharePrice - a.sharePrice)[0];
   return card.quotes
     .filter((q) => isTradable(q) && !(q.platformId === "ondo" && amount < ONDO_MIN_USD))
     .sort((a, b) => a.sharePrice - b.sharePrice)[0];
 }
 
 // Market checks on a fresh price card. Returns a refusal reason, or null if OK.
-export function checkMarket(card: Card, rules: Rules, amount: number): string | null {
+// The gap check guards both ways: don't buy far above the real price, don't sell far below it.
+export function checkMarket(card: Card, rules: Rules, amount: number, side: "buy" | "sell" = "buy"): string | null {
   if (!card.quotes.length) return card.text;
   if (!card.best) {
     const why = card.quotes.map((q) => `${ISSUER_NAME[q.platformId]}: ${q.statusInfo?.reasonMsg ?? q.statusInfo?.reasonCode ?? "no status"}`).join("; ");
     return `⛔ Nobody is trading ${esc(card.quotes[0].underlyingTicker)} right now (${esc(why)}).`;
   }
-  const pick = pickIssuer(card, amount);
+  const pick = pickIssuer(card, amount, side);
   if (!pick) return `⛔ Only Ondo trades ${esc(card.quotes[0].underlyingTicker)} right now, and Ondo needs at least $${ONDO_MIN_USD} per trade.`;
   const gapPct = card.real ? (pick.sharePrice / card.real.price - 1) * 100 : undefined;
   if (gapPct !== undefined && Math.abs(gapPct) > rules.max_gap_percent) {
@@ -53,19 +56,22 @@ export function checkMarket(card: Card, rules: Rules, amount: number): string | 
     return `⛔ The on-chain price is <b>${gapPct.toFixed(2)}% ${dir}</b> the real stock. The club's limit is ${rules.max_gap_percent}%. Too risky right now.`;
   }
   if (card.spreadPct !== undefined && card.spreadPct > rules.max_spread_percent) {
-    return `⛔ bStocks and Ondo prices are <b>${card.spreadPct.toFixed(2)}% apart</b> (limit ${rules.max_spread_percent}%). Something looks off, so I'm not buying.`;
+    return `⛔ bStocks and Ondo prices are <b>${card.spreadPct.toFixed(2)}% apart</b> (limit ${rules.max_spread_percent}%). Something looks off, so I'm not ${side === "sell" ? "selling" : "buying"}.`;
   }
   return null;
 }
+
+// "buy $20 of NVDA" / "sell NVDA", for messages.
+export const what = (p: Proposal) => (p.side === "sell" ? `sell ${esc(p.ticker)}` : `buy $${p.amount_usd} of ${esc(p.ticker)}`);
 
 export function getOpenProposalForTicker(clubId: number, ticker: string): Proposal | undefined {
   return db.prepare("SELECT * FROM proposals WHERE club_id = ? AND ticker = ? AND status = 'open'").get(clubId, ticker) as Proposal | undefined;
 }
 
-export function createProposal(clubId: number, proposerId: number, ticker: string, amount: number, hours: number): Proposal {
+export function createProposal(clubId: number, proposerId: number, ticker: string, amount: number, hours: number, side: "buy" | "sell" = "buy"): Proposal {
   const closes = new Date(Date.now() + hours * 3600_000).toISOString();
-  const r = db.prepare("INSERT INTO proposals (club_id, proposer_id, ticker, amount_usd, closes_at) VALUES (?, ?, ?, ?, ?)")
-    .run(clubId, proposerId, ticker, amount, closes);
+  const r = db.prepare("INSERT INTO proposals (club_id, proposer_id, ticker, amount_usd, closes_at, side) VALUES (?, ?, ?, ?, ?, ?)")
+    .run(clubId, proposerId, ticker, amount, closes, side);
   return db.prepare("SELECT * FROM proposals WHERE id = ?").get(r.lastInsertRowid) as Proposal;
 }
 
@@ -118,7 +124,8 @@ export async function closeProposal(api: Api, p: Proposal, chatId: number): Prom
   const t = tally(p);
   const rules = getRules(p.club_id);
   const yesPct = t.voted ? (t.yes.length / t.voted) * 100 : 0;
-  const head = `🗳 <b>Vote closed: buy $${p.amount_usd} of ${esc(p.ticker)}</b>\n👍 ${t.yes.length}  👎 ${t.no}  (${t.voted} of ${t.members} members voted)`;
+  const sell = p.side === "sell";
+  const head = `🗳 <b>Vote closed: ${what(p)}</b>\n👍 ${t.yes.length}  👎 ${t.no}  (${t.voted} of ${t.members} members voted)`;
 
   if (t.voted < Math.ceil(t.members * QUORUM)) {
     setStatus(p.id, "failed", "not enough votes");
@@ -134,7 +141,7 @@ export async function closeProposal(api: Api, p: Proposal, chatId: number): Prom
   // Passed the vote. Prices move, so check everything again right before buying.
   if (rules.paused) {
     setStatus(p.id, "refused", "club paused");
-    await api.sendMessage(chatId, `${head}\n\n✅ The vote passed, but ⛔ the club is paused, so nobody buys.`, { parse_mode: "HTML" });
+    await api.sendMessage(chatId, `${head}\n\n✅ The vote passed, but ⛔ the club is paused, so nobody ${sell ? "sells" : "buys"}.`, { parse_mode: "HTML" });
     return;
   }
   let card: Card;
@@ -142,19 +149,23 @@ export async function closeProposal(api: Api, p: Proposal, chatId: number): Prom
     card = await priceCard(p.ticker);
   } catch {
     setStatus(p.id, "refused", "price check failed");
-    await api.sendMessage(chatId, `${head}\n\n✅ The vote passed, but I couldn't get fresh prices from Binance, so I'm not buying. Propose it again in a bit.`, { parse_mode: "HTML" });
+    await api.sendMessage(chatId, `${head}\n\n✅ The vote passed, but I couldn't get fresh prices from Binance, so I'm not ${sell ? "selling" : "buying"}. Propose it again in a bit.`, { parse_mode: "HTML" });
     return;
   }
-  const marketNo = checkMarket(card, rules, p.amount_usd);
+  const marketNo = checkMarket(card, rules, p.amount_usd, p.side);
   if (marketNo) {
     setStatus(p.id, "refused", marketNo.replace(/<[^>]+>/g, ""));
     await api.sendMessage(chatId, `${head}\n\n✅ The vote passed, but I checked again right now:\n${marketNo}`, { parse_mode: "HTML" });
     return;
   }
 
-  const best = pickIssuer(card, p.amount_usd)!; // checkMarket made sure there is one
+  const best = pickIssuer(card, p.amount_usd, p.side)!; // checkMarket made sure there is one
   setStatus(p.id, "passed", null, best.platformId, best.tokenContractAddress);
   const names = t.yes.map((m) => esc(m.name)).join(", ");
+  if (sell) {
+    await api.sendMessage(chatId, `${head}\n\n✅ <b>Passed!</b> Yes-voters: ${names}. Each sells all their ${esc(p.ticker)} for USDT, in their own wallet.`, { parse_mode: "HTML" });
+    return runSells(api, chatId, p, t.yes, card);
+  }
   await api.sendMessage(
     chatId,
     `${head}\n\n✅ <b>Passed!</b> Buying via <b>${ISSUER_NAME[best.platformId]}</b> (${esc(best.tokenSymbol)}).\n` +
@@ -186,23 +197,7 @@ async function runBuys(api: Api, chatId: number, p: Proposal, yes: Member[], bes
       continue;
     }
     if (!m.autopilot_on || !autopilotAvailable()) {
-      // Tap to buy: a private Buy button that opens the Mini App; the member signs in their own wallet.
-      const tapToken = crypto.randomBytes(18).toString("base64url");
-      createTapOrder(p.id, m.id, p.amount_usd, tapToken);
-      const url = `${WEB_URL}/buy?t=${tapToken}`;
-      const dm = await api
-        .sendMessage(m.telegram_user_id, `🗳 Your club voted yes: buy <b>$${p.amount_usd} of ${esc(p.ticker)}</b>.\nTap the button to buy in your own wallet. The link works for 2 hours.`, {
-          parse_mode: "HTML",
-          reply_markup: { inline_keyboard: [[{ text: `Buy $${p.amount_usd} ${p.ticker}`, web_app: { url } }]] },
-        })
-        .then(() => true)
-        .catch(() => false); // fails if they never opened a private chat with the bot
-      const me = await api.getMe();
-      lines.push(
-        dm
-          ? `👆 ${name}: I sent you a Buy button in our private chat.`
-          : `👆 ${name}: open t.me/${me.username}?start=buy_${tapToken} to get your Buy button.`,
-      );
+      lines.push(await sendTapButton(api, p, m));
       continue;
     }
     const orderId = createOrder(p.id, m.id, "autopilot", p.amount_usd);
@@ -217,13 +212,42 @@ async function runBuys(api: Api, chatId: number, p: Proposal, yes: Member[], bes
       lines.push(`❌ ${name}: ${esc(r.error ?? "failed")}`);
     }
   }
-  const bought = lines.filter((l) => l.startsWith("✅")).length;
+  await postResults(api, chatId, p, lines);
+}
+
+// Tap to buy / sell: a private button that opens the Mini App; the member signs in their own wallet.
+// Returns the member's line for the group's results message.
+async function sendTapButton(api: Api, p: Proposal, m: Member): Promise<string> {
+  const sell = p.side === "sell", name = esc(m.name), btn = sell ? "Sell" : "Buy";
+  const tapToken = crypto.randomBytes(18).toString("base64url");
+  createTapOrder(p.id, m.id, sell ? 0 : p.amount_usd, tapToken);
+  const url = `${WEB_URL}/buy?t=${tapToken}`;
+  const text = sell
+    ? `🗳 Your club voted yes: <b>sell ${esc(p.ticker)}</b>.\nTap the button to sell all of it for USDT in your own wallet. The link works for 2 hours.`
+    : `🗳 Your club voted yes: buy <b>$${p.amount_usd} of ${esc(p.ticker)}</b>.\nTap the button to buy in your own wallet. The link works for 2 hours.`;
+  const dm = await api
+    .sendMessage(m.telegram_user_id, text, {
+      parse_mode: "HTML",
+      reply_markup: { inline_keyboard: [[{ text: sell ? `Sell ${p.ticker}` : `Buy $${p.amount_usd} ${p.ticker}`, web_app: { url } }]] },
+    })
+    .then(() => true)
+    .catch(() => false); // fails if they never opened a private chat with the bot
+  const me = await api.getMe();
+  return dm
+    ? `👆 ${name}: I sent you a ${btn} button in our private chat.`
+    : `👆 ${name}: open t.me/${me.username}?start=buy_${tapToken} to get your ${btn} button.`;
+}
+
+// Tap members haven't had a chance to trade yet, so don't count them as "not bought".
+async function postResults(api: Api, chatId: number, p: Proposal, lines: string[]) {
+  const sell = p.side === "sell";
+  const done = lines.filter((l) => l.startsWith("✅")).length;
   const tapping = lines.filter((l) => l.startsWith("👆")).length;
-  // Tap-to-buy members haven't had a chance to buy yet, so don't count them as "not bought".
+  const rest = lines.length - done - tapping;
   const head = [
-    bought ? `${bought} bought` : "",
-    tapping ? `waiting for ${tapping} ${tapping === 1 ? "member" : "members"} to tap Buy` : "",
-    yes.length - bought - tapping ? `${yes.length - bought - tapping} not bought` : "",
+    done ? `${done} ${sell ? "sold" : "bought"}` : "",
+    tapping ? `waiting for ${tapping} ${tapping === 1 ? "member" : "members"} to tap ${sell ? "Sell" : "Buy"}` : "",
+    rest ? `${rest} not ${sell ? "sold" : "bought"}` : "",
   ].filter(Boolean).join(", ");
   await api.sendMessage(chatId, `🧾 <b>${head.charAt(0).toUpperCase() + head.slice(1)}</b>\n${lines.join("\n")}`, {
     parse_mode: "HTML",
@@ -231,10 +255,41 @@ async function runBuys(api: Api, chatId: number, p: Proposal, yes: Member[], bes
   });
 }
 
+// Each yes-voter sells everything they hold of the stock. No weekly limit: selling doesn't spend.
+async function runSells(api: Api, chatId: number, p: Proposal, yes: Member[], card: Card) {
+  const tokens = card.quotes.filter(isTradable).map((q) => ({ address: q.tokenContractAddress, platform: q.platformId, price: q.tokenPrice }));
+  const auto = yes.filter((m) => m.autopilot_on);
+  if (auto.length && autopilotAvailable()) {
+    await api.sendMessage(chatId, `🤖 Autopilot is selling for ${auto.length} member${auto.length > 1 ? "s" : ""}…`);
+  }
+  const lines: string[] = [];
+  for (const m of yes) {
+    const name = esc(m.name);
+    if (!m.autopilot_on || !autopilotAvailable()) {
+      lines.push(await sendTapButton(api, p, m));
+      continue;
+    }
+    const orderId = createOrder(p.id, m.id, "autopilot", 0);
+    const r = await sellAll(m.telegram_user_id, tokens);
+    finishOrder(orderId, { ...r, status: r.status });
+    if (r.status === "filled") {
+      const link = r.txHash ? ` · <a href="https://bscscan.com/tx/${r.txHash}">BscScan</a>` : "";
+      lines.push(`✅ ${name} sold ${(r.soldQty ?? 0).toFixed(6)} ${esc(p.ticker)} for ${Number(r.qty ?? 0).toFixed(2)} USDT${link}`);
+    } else if (r.status === "submitted") {
+      lines.push(`⏳ ${name}: sent, still confirming. I'll keep the record.`);
+    } else {
+      lines.push(`${r.status === "skipped" ? "➖" : "❌"} ${name}: ${esc(r.error ?? "failed")}`);
+    }
+  }
+  await postResults(api, chatId, p, lines);
+}
+
 export function proposalIntro(club: Club, proposer: Member, p: Proposal, card: Card, rules: Rules): string {
   const closes = new Date(p.closes_at);
   return (
-    `🗳 <b>${esc(proposer.name)}</b> proposes: buy <b>$${p.amount_usd} of ${esc(p.ticker)}</b> each.\n\n` +
+    (p.side === "sell"
+      ? `🗳 <b>${esc(proposer.name)}</b> proposes: <b>sell ${esc(p.ticker)}</b>. Everyone who votes yes sells all their ${esc(p.ticker)} for USDT.\n\n`
+      : `🗳 <b>${esc(proposer.name)}</b> proposes: buy <b>$${p.amount_usd} of ${esc(p.ticker)}</b> each.\n\n`) +
     `${card.text}\n\n` +
     `Vote below. Passes with ${rules.vote_pass_percent}% yes and at least half the club voting.\n` +
     `Closes at ${closes.toISOString().slice(11, 16)} UTC (${rules.vote_hours} h). Only members count, /join to vote.`
