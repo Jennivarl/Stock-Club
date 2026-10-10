@@ -7,7 +7,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { SignClient } from "@walletconnect/sign-client";
 
-const BINANCE_UNIVERSAL = "https://app.binance.com/cedefi"; // WalletConnect wallet directory, checked Oct 8
+// Binance Wallet's links (WalletConnect wallet directory / AppKit wallet API, checked Oct 10):
+// mobile_link = bnc://app.binance.com/cedefi/, link_mode = https://app.binance.com/cedefi.
+const BINANCE_UNIVERSAL = "https://app.binance.com/cedefi"; // works for connecting (wc?uri=...), tested Oct 10
+const BINANCE_NATIVE = "bnc://app.binance.com/cedefi";
 const CHAIN = "eip155:56";
 const TOPICS_FILE = path.resolve("data/wc-topics.json"); // telegram user id -> session topic
 
@@ -90,8 +93,9 @@ export const pairingStatus = (telegramUserId: number) => pairings.get(telegramUs
 
 // Sends one transaction to the member's wallet.
 // `link` opens Binance on this exact request. WalletConnect's own format (sign-client opens it itself when it
-// runs in a browser): <wallet link>/wc?requestId=<id>&sessionTopic=<topic>. Opening the bare
-// https://app.binance.com/cedefi instead makes Binance show "QR code expired" (Oct 10).
+// runs in a browser): <wallet link>/wc?requestId=<id>&sessionTopic=<topic>, with the wallet's NATIVE link
+// (that's what AppKit saves). https://app.binance.com/cedefi is Binance's "Link Mode" link, which expects the
+// request inside the link; opening it plain or with requestId makes Binance show "QR code expired" (Oct 10).
 // `result` resolves with the tx hash or rejects with the wallet's error; it can take minutes.
 export async function sendTransaction(telegramUserId: number, tx: Record<string, string>): Promise<{ link: string; result: Promise<string> }> {
   const s = await sessionOf(telegramUserId);
@@ -110,5 +114,5 @@ export async function sendTransaction(telegramUserId: number, tx: Record<string,
   });
   result.catch(() => {}); // the caller handles it; don't crash on an unhandled rejection meanwhile
   const id = await Promise.race([sent, result.then(() => { throw new Error("answered before sent"); })]);
-  return { link: `${BINANCE_UNIVERSAL}/wc?requestId=${id}&sessionTopic=${s.topic}`, result };
+  return { link: `${BINANCE_NATIVE}/wc?requestId=${id}&sessionTopic=${s.topic}`, result };
 }

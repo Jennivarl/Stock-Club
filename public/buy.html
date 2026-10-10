@@ -76,6 +76,9 @@ const t = new URLSearchParams(location.search).get("t");
 const $ = (id) => document.getElementById(id);
 const show = (id, on = true) => $(id).classList.toggle("hidden", !on);
 const openLink = (u) => (tg?.openLink ? tg.openLink(u) : window.open(u, "_blank"));
+// Opens a bnc:// wallet link the same way WalletConnect's sign-client does inside Telegram
+// (tg.openLink only takes web links). This is how the working buy on Oct 10 03:43 opened Binance.
+const openWalletApp = (u) => window.open(u, "_blank", "noreferrer noopener");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 let plan, order, sell = false, link;
@@ -239,10 +242,10 @@ async function ask(kind, done) {
   // The server sends the request, then gives us the link that opens Binance on exactly this request.
   const { link: reqLink } = await api("send", { kind });
   log("open-request", reqLink.replace(/sessionTopic=\w+/, "sessionTopic=…"));
-  openLink(reqLink);
+  openWalletApp(reqLink);
   screen(`Confirm in <b>Binance Wallet</b>, then come back to Telegram.`,
     waiting(`Watching for your ${word}. This page updates by itself.`),
-    { label: "Open Binance Wallet", onClick: () => { log("open-wallet-tap"); openLink(reqLink); } });
+    { label: "Open Binance Wallet", onClick: () => { log("open-wallet-tap"); openWalletApp(reqLink); } });
   const t0 = Date.now();
   while (Date.now() - t0 < 20 * 60_000) {
     await sleep(2500);
