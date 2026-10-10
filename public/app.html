@@ -40,7 +40,9 @@
       linear-gradient(180deg, rgba(28,33,41,.96), rgba(16,19,24,.96)) padding-box,
       linear-gradient(135deg, rgba(240,185,11,.55), rgba(240,185,11,.05) 40%, rgba(255,255,255,.06) 70%, rgba(240,185,11,.35)) border-box; }
   .row { display: flex; align-items: center; gap: 10px; } .between { justify-content: space-between; } .col { display: flex; flex-direction: column; }
-  .ic { width: 20px; height: 20px; flex: none; fill: currentColor; }
+  .ic { width: 20px; height: 20px; flex: none; fill: currentColor; vertical-align: middle; }
+  /* small icons sitting inside a line of text: center them on the text, with a little space after */
+  td > .ic, .muted > .ic, span > .ic.sm, small > .ic { width: 1.15em; height: 1.15em; vertical-align: -0.22em; margin-right: 5px; }
   .ic.sm { width: 16px; height: 16px; } .ic.lg { width: 24px; height: 24px; }
   .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 999px; background: var(--card2); color: var(--fg2); border: 1px solid var(--line); }
   .pill.open { color: var(--up); } .pill.closed { color: var(--down); } .pill.gold { color: var(--gold); }
