@@ -43,8 +43,18 @@ export function initWallet(projectId: string, onAccount: (address: string | unde
     return r?.messages?.length ?? 0;
   }
 
+  // THE iPhone fix (Oct 10, reproduced on our server): when Telegram hides the page (user goes to Binance),
+  // iOS freezes it but its relay socket stays open ~30-40 s. The relay pushes the wallet's answer into that
+  // frozen socket, counts it as delivered, and it's lost. So hang up on purpose when hidden (no redial);
+  // the relay then keeps the answer in its mailbox and hands it over when we reconnect on return.
+  async function relayer() { const up: any = await modal.getUniversalProvider(); return up?.client?.core?.relayer; }
+  async function sleep() { const r = await relayer(); await r?.transportClose(); }
+  async function wake() { const r = await relayer(); await r?.transportOpen(); await catchUp().catch(() => 0); }
+
   return {
     catchUp,
+    sleep,
+    wake,
     open: () => modal.open(),
     requestLink: () => lastRequest
       ? `bnc://app.binance.com/cedefi/wc?requestId=${lastRequest.id}&sessionTopic=${lastRequest.topic}`

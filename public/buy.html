@@ -277,10 +277,14 @@ async function buy() {
 }
 
 // Wallet connection: Reown AppKit (WalletConnect's official modal), bundled in /wallet.js.
-// Back from Binance: pull in anything WalletConnect missed while iPhone paused this page.
+// Leaving for Binance: hang up the WalletConnect line on purpose, so its answer waits in the relay's mailbox
+// instead of going into this frozen page and getting lost. Coming back: reconnect and collect it.
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden || !wc?.catchUp) return;
-  for (const ms of [1500, 5000, 10000]) setTimeout(() => wc.catchUp().then((n) => n && log("caught-up", n)).catch((e) => log("catchup-error", e?.message)), ms);
+  if (!wc?.sleep) return;
+  if (document.hidden) { wc.sleep().catch(() => {}); return; }
+  log("wake");
+  wc.wake().catch((e) => log("wake-error", e?.message));
+  for (const ms of [3000, 8000]) setTimeout(() => wc.catchUp().then((n) => n && log("caught-up", n)).catch(() => {}), ms);
 });
 async function startWallet() {
   const { walletConnectProjectId } = await api("config");
