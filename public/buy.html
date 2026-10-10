@@ -230,7 +230,7 @@ function untilDone(ask, checkChain) {
 }
 
 async function allow() {
-  log("request-start", "allow USDT");
+  log("request-start", `allow ${sell ? order.ticker : "USDT"}`);
   screen("Approve in <b>Binance Wallet</b>, then come back to Telegram.",
     waiting("Watching the chain for your approval. This page updates by itself."), openWallet);
   try {
@@ -238,9 +238,18 @@ async function allow() {
       async () => (await api("approved", null, { wallet, spender: plan.spender, token: plan.fromToken, amount: plan.amountRaw })).ok);
     log("allow-ok");
     step("allow", "done"); step("buy", "active");
-    screen(sell ? `✅ ${order.ticker} allowed. Now confirm the sale.` : "✅ USDT allowed. Now confirm the buy.", "",
+  } catch (e) { return failed(e.message); }
+  // Now that the approval is on-chain, get a fresh price and a trade the server could check against the chain.
+  screen(waiting("✅ Allowed. Getting a fresh price…"));
+  try {
+    plan = await api("plan", { wallet });
+    screen(sell ? `✅ ${order.ticker} allowed. Now confirm the sale.` : "✅ USDT allowed. Now confirm the buy.",
+      sell ? `You get about <b>${plan.expectedQty.toFixed(2)} USDT</b> (at least ${plan.minQty.toFixed(2)}).`
+        : `You get about <b>${plan.expectedQty.toFixed(6)} ${order.ticker}</b> (at least ${plan.minQty.toFixed(6)}).`,
       { label: sell ? "Sell" : "Buy", onClick: buy });
-  } catch (e) { failed(e.message); }
+  } catch (e) {
+    screen(`<span class="bad">${e.message}</span>`, "", { label: "Try again", onClick: makePlan });
+  }
 }
 
 async function buy() {

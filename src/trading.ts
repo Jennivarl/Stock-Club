@@ -83,6 +83,17 @@ async function planSwap(wallet: string, from: string, to: string, amountRaw: big
       ? { to: from, data: "0x095ea7b3" + pad(spender) + amountRaw.toString(16).padStart(64, "0"), gas: "0x" + (80_000).toString(16) }
       : undefined;
 
+  // Binance's gas limit can be too low: for a bStocks sale it said 250k, the trade needs ~654k and
+  // runs out of gas (Oct 10, DX log). Once the allowance is in place, ask the chain and add 25%.
+  // (Before the approval the trade can't be simulated, so the page asks for a fresh plan after it.)
+  let gas = BigInt(tx.gas ?? 450000);
+  if (!approve) {
+    const est = await rpc<string>("eth_estimateGas", [{ from: wallet, to: tx.to, data: tx.data, value: "0x" + BigInt(tx.value ?? 0).toString(16) }])
+      .then(BigInt)
+      .catch(() => { throw new Error("Binance's route for this trade would fail on-chain right now. Nothing was sent. Try again in a few minutes."); });
+    if ((est * 5n) / 4n > gas) gas = (est * 5n) / 4n;
+  }
+
   const [dFrom, dTo] = await Promise.all([decimals(from), decimals(to)]);
   return {
     mode: "SWAP",
@@ -94,7 +105,7 @@ async function planSwap(wallet: string, from: string, to: string, amountRaw: big
     minQty: Number(tx.minReceiveAmount ?? 0) / 10 ** dTo,
     spender,
     approve,
-    tx: { to: tx.to, data: tx.data, value: "0x" + BigInt(tx.value ?? 0).toString(16), gas: "0x" + BigInt(tx.gas ?? 450000).toString(16) },
+    tx: { to: tx.to, data: tx.data, value: "0x" + BigInt(tx.value ?? 0).toString(16), gas: "0x" + gas.toString(16) },
     balances: bal,
   };
 }
