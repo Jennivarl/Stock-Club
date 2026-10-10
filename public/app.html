@@ -552,6 +552,7 @@ function renderStart(done, total) {
   if (done != null) $("startCount").textContent = `${done}/${total}`;
 }
 $("startBtn").onclick = () => showOnboarding(SLIDES.length);
+document.querySelector("#v-home .brand").onclick = () => { haptic(); showOnboarding(0); }; // replay the intro anytime
 
 // ---------- start ----------
 (async () => {
