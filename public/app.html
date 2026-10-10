@@ -92,7 +92,7 @@
   .cap .ws.open { color: var(--up); }
   .cap .oc { color: #15120a; background: linear-gradient(180deg, #ffd84f, #e9ae05); }
   .cap .oc small { color: rgba(21,18,10,.6); }
-  .cap .pulse { position: absolute; right: 6px; top: 6px; width: 6px; height: 6px; border-radius: 50%; background: #15120a; animation: blink 1.6s ease-in-out infinite; }
+  .cap .pulse { display: inline-block; width: 6px; height: 6px; margin-left: 6px; border-radius: 50%; background: #15120a; vertical-align: middle; position: relative; top: -1px; animation: blink 1.6s ease-in-out infinite; }
   .mkt { display: grid; gap: 3px; text-align: right; }
   .mkt > div { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
   .mk { font-size: 9.5px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #5d6672; }
@@ -266,7 +266,7 @@
     <div class="brand"><img src="/assets/mark-192.png" alt="" /><div class="col"><b>Stock Club</b><span class="muted" id="hello" style="font-size:12px">Tokenized stocks on BNB Chain</span></div></div>
     <div class="cap" id="mkt">
       <div class="half ws" id="wsHalf"><svg class="ic sm"><use href="#i-moon" id="wsIcon"/></svg><span><small>Wall St</small><b id="wsText">…</b></span></div>
-      <div class="half oc"><svg class="ic sm"><use href="#i-zap"/></svg><span><small>On-chain</small><b>Live</b></span><i class="pulse"></i></div>
+      <div class="half oc"><svg class="ic sm"><use href="#i-zap"/></svg><span><small>On-chain</small><b>Live<i class="pulse"></i></b></span></div>
     </div>
   </div>
   <div class="tape"><div class="run num" id="tape"></div></div>
