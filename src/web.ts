@@ -53,7 +53,7 @@ export function startWeb(api: Api) {
       if (req.method === "GET" && (url.pathname === "/app" || url.pathname === "/app/")) {
         return send(res, 200, fs.readFileSync(path.join(PUBLIC, "app.html"), "utf8"), "text/html; charset=utf-8");
       }
-      if (await handleApp(api, req, url, (code, body) => send(res, code, body), () => readJson(req))) return;
+      if (await handleApp(api, req, url, (code, body) => send(res, code, body), () => readJson(req), res)) return;
 
       const order = getTapOrder(String(url.searchParams.get("t") ?? ""));
       if (url.pathname.startsWith("/api/") && !order) return send(res, 404, { error: "This link isn't valid." });

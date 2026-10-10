@@ -30,6 +30,28 @@ export function userFromInitData(initData: string): TgUser | undefined {
   try { return JSON.parse(params.get("user") ?? ""); } catch { return undefined; }
 }
 
+// Token logos come from Binance (onchainos.bnbstatic.com). Some networks block Binance domains (the
+// developer's home ISP does), so the app loads them from us: /api/app/logo/<id>.png, cached on disk.
+const logoUrls = new Map<string, string>();
+function rememberLogo(url?: string): string | null {
+  const m = url?.match(/^https:\/\/onchainos\.bnbstatic\.com\/[\w/.-]+\/([0-9a-f]{32})\.png$/);
+  if (!m) return null;
+  logoUrls.set(m[1], url!);
+  return `/api/app/logo/${m[1]}.png`;
+}
+async function logo(id: string): Promise<Buffer | undefined> {
+  const file = path.resolve(`data/logos/${id}.png`);
+  if (fs.existsSync(file)) return fs.readFileSync(file);
+  const url = logoUrls.get(id);
+  if (!url) return undefined;
+  const r = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+  if (!r.ok) return undefined;
+  const buf = Buffer.from(await r.arrayBuffer());
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, buf);
+  return buf;
+}
+
 let stocksCache: { at: number; data: unknown } | undefined;
 async function stocks() {
   if (stocksCache && Date.now() - stocksCache.at < 30_000) return stocksCache.data;
@@ -50,12 +72,12 @@ async function stocks() {
       return {
         ticker,
         name: qs[0]?.underlyingName ?? ticker,
-        logo: bs?.tokenLogoUrl ?? qs.find((q) => q.tokenLogoUrl)?.tokenLogoUrl ?? null,
+        logo: rememberLogo(bs?.tokenLogoUrl ?? qs.find((q) => q.tokenLogoUrl)?.tokenLogoUrl),
         stats: { pe: one("peRatioTTM"), volume24h: one("volume24H"), marketCap: one("marketCap") },
         onchain: best?.sharePrice ?? qs[0]?.sharePrice ?? null,
         bestIssuer: best ? ISSUER_NAME[best.platformId] : null,
         tradable: tradable.length > 0,
-        issuers: qs.map((q) => ({ name: ISSUER_NAME[q.platformId], symbol: q.tokenSymbol, price: q.sharePrice, open: isTradable(q), logo: q.tokenLogoUrl ?? null })),
+        issuers: qs.map((q) => ({ name: ISSUER_NAME[q.platformId], symbol: q.tokenSymbol, price: q.sharePrice, open: isTradable(q), logo: rememberLogo(q.tokenLogoUrl) })),
         real: real ? { price: real.price, prevClose: real.prevClose, at: real.at } : null,
         gapPct: best && real ? (best.sharePrice / real.price - 1) * 100 : null,
         changePct: best && real?.prevClose ? (best.sharePrice / real.prevClose - 1) * 100 : null,
@@ -115,8 +137,16 @@ let botName: string | undefined;
 const isAddr = (s: unknown): s is string => typeof s === "string" && /^0x[0-9a-fA-F]{40}$/.test(s);
 
 // Returns true if it handled the request.
-export async function handleApp(api: Api, req: http.IncomingMessage, url: URL, send: (code: number, body: unknown) => void, readJson: () => Promise<any>): Promise<boolean> {
+export async function handleApp(api: Api, req: http.IncomingMessage, url: URL, send: (code: number, body: unknown) => void, readJson: () => Promise<any>, res?: http.ServerResponse): Promise<boolean> {
   if (!url.pathname.startsWith("/api/app/")) return false;
+  const lm = url.pathname.match(/^\/api\/app\/logo\/([0-9a-f]{32})\.png$/);
+  if (req.method === "GET" && lm && res) {
+    if (!logoUrls.size) await stocks();
+    const buf = await logo(lm[1]).catch(() => undefined);
+    if (!buf) { send(404, { error: "No logo" }); return true; }
+    res.writeHead(200, { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" });
+    res.end(buf); return true;
+  }
   if (req.method === "GET" && url.pathname === "/api/app/stocks") { send(200, await stocks()); return true; }
   if (req.method === "GET" && url.pathname === "/api/app/chart") {
     const t = String(url.searchParams.get("ticker") ?? "").toUpperCase();
