@@ -277,7 +277,7 @@
   <div class="tape"><div class="run num" id="tape"></div></div>
 
   <div class="card hero" id="hero">
-    <div class="row" style="gap:12px"><svg class="ic lg gold"><use href="#i-lock" id="heroIcon"/></svg>
+    <div class="row" style="gap:12px"><svg class="ic lg gold"><use href="#i-bank" id="heroIcon"/></svg>
       <div><h3 id="heroTitle">Wall Street is closed. On-chain isn't.</h3>
       <div class="muted" id="heroText">Tokenized stocks trade 24/7. While the market sleeps, their price can drift from the last real price. That's the <b style="color:var(--fg)">gap</b>.</div></div></div>
     <div class="countrow">
@@ -485,7 +485,7 @@ async function loadMarkets() {
   const ws = market.wallStreet;
   $("wsText").textContent = ws.open ? "Open" : "Closed";
   $("wsHalf").classList.toggle("open", ws.open); $("wsIcon").setAttribute("href", "#i-bank");
-  $("heroIcon").setAttribute("href", ws.open ? "#i-clock" : "#i-lock");
+  $("heroIcon").setAttribute("href", "#i-bank");
   $("heroTitle").textContent = ws.open ? "Wall Street is open." : "Wall Street is closed. On-chain isn't.";
   $("heroText").innerHTML = ws.open ? "On-chain prices follow the real ones closely while the market is open. Watch the <b style='color:var(--fg)'>gap</b> after hours." : "Tokenized stocks trade 24/7. While the market sleeps, their price can drift from the last real price. That's the <b style='color:var(--fg)'>gap</b>.";
   const withGap = market.stocks.filter((s) => s.gapPct != null);
