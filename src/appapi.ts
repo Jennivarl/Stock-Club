@@ -8,6 +8,7 @@ import type { Api } from "grammy";
 import { clubsOf, db, getClub, getMember, getMembers, getRules } from "./db.js";
 import { startProposal } from "./proposals.js";
 import { candles, impact, news, stockDetail, universe } from "./tools.js";
+import { activeAlerts, addAlert, describe } from "./alerts.js";
 import { isTradable, ISSUER_NAME, quotesForMany, wallStreetNow } from "./rwa.js";
 import { realQuote } from "./stocks.js";
 import { balances, tokenBalance } from "./trading.js";
@@ -190,6 +191,20 @@ export async function handleApp(api: Api, req: http.IncomingMessage, url: URL, s
     const w = url.searchParams.get("wallet") || lastWallet(user.id);
     if (!isAddr(w)) { send(200, { wallet: null }); return true; }
     send(200, await portfolio(w)); return true;
+  }
+  if (req.method === "POST" && url.pathname === "/api/app/alert") {
+    const { chatId, ticker, kind, value } = await readJson();
+    const club = getClub(Number(chatId));
+    if (!club || !getMember(club.id, user.id)) { send(403, { error: "You're not a member of that club." }); return true; }
+    const r = await addAlert(club.id, user.id, user.first_name ?? user.username ?? "a member", String(ticker ?? "").toUpperCase().replace(/[^A-Z.]/g, ""), String(kind), Number(value));
+    if (typeof r === "string") { send(422, { error: r }); return true; }
+    await api.sendMessage(club.telegram_chat_id, `🔔 ${user.first_name ?? "A member"} set an alert: <b>${describe(r)}</b>. I'll post here when it happens.`, { parse_mode: "HTML" }).catch(() => {});
+    send(200, { ok: true, alert: r, text: describe(r) }); return true;
+  }
+  if (req.method === "GET" && url.pathname === "/api/app/alerts") {
+    const club = getClub(Number(url.searchParams.get("chatId")));
+    if (!club || !getMember(club.id, user.id)) { send(403, { error: "You're not a member of that club." }); return true; }
+    send(200, activeAlerts(club.id).map((a) => ({ id: a.id, ticker: a.ticker, text: describe(a), by: a.creator_name }))); return true;
   }
   if (req.method === "POST" && url.pathname === "/api/app/propose") {
     const { chatId, ticker, amount, side } = await readJson();

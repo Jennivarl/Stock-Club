@@ -86,6 +86,17 @@
   .mv i.open { background: var(--up); } .mv i.closed { background: #a14455; }
   .mv i.on { background: var(--gold); animation: blink 2.4s ease-in-out infinite; }
   @keyframes blink { 50% { opacity: .35; } }
+  .chip.sm { padding: 5px 10px; font-size: 12px; border-radius: 8px; display: inline-flex; align-items: center; }
+  .bell { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; background: var(--card2); border: 1px solid var(--line2); color: var(--gold); }
+  .cal { width: 54px; border-radius: 12px; overflow: hidden; text-align: center; border: 1px solid var(--line2); flex: none; }
+  .cal small { display: block; background: var(--gold); color: #15120a; font-size: 10px; font-weight: 800; letter-spacing: .1em; padding: 3px 0; }
+  .cal b { display: block; font-size: 22px; padding: 4px 0 6px; background: var(--card2); }
+  .news { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .news:last-child { border-bottom: 0; }
+  .news img { width: 64px; height: 64px; border-radius: 10px; object-fit: cover; flex: none; background: var(--card2); }
+  .news b { font-size: 14px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .alrow { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); font-size: 13px; }
+  .browse { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-radius: 14px; margin-top: 10px; background: var(--card2); border: 1px solid var(--line2); font-weight: 800; width: 100%; }
   /* ticker tape */
   .tape { position: relative; overflow: hidden; margin: 12px -16px 0; padding: 9px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: rgba(255,255,255,.015); -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
   .tape .run { display: inline-flex; gap: 22px; white-space: nowrap; animation: tape 38s linear infinite; padding-left: 16px; }
@@ -220,6 +231,8 @@
   <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></symbol>
   <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M10.27 21a2 2 0 0 0 3.46 0"/><path d="M3.26 15.33A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.67C19.41 13.96 18 12.5 18 8A6 6 0 0 0 6 8c0 4.5-1.41 5.96-2.74 7.33"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol>
 </svg>
 
@@ -279,6 +292,7 @@
   <div class="row between" style="margin:22px 2px 0"><h2 style="margin:0">Stocks</h2>
     <div class="seg" id="filter"><button data-f="all" class="on">All</button><button data-f="movers">Movers</button><button data-f="gap">Gap</button></div></div>
   <div class="card glow" style="padding:4px 12px" id="list"><div style="padding:14px 0"><div class="skel"></div><br><div class="skel"></div><br><div class="skel"></div></div></div>
+  <button class="browse" id="browseAll"><span class="row" style="gap:10px"><svg class="ic gold"><use href="#i-search"/></svg>Browse all tokenized stocks</span><span class="muted num" id="allN"></span></button>
   <div class="muted" style="text-align:center;margin-top:8px">On-chain: Binance Web3 API (bStocks, Ondo) · Real: Finnhub · Gap = on-chain vs real</div>
 </div></div>
 
@@ -308,28 +322,36 @@
 
 <!-- ===== Stock page ===== -->
 <div class="sheet" id="sheet"><div class="wrap">
-  <button class="back" id="back"><svg class="ic sm"><use href="#i-back"/></svg>Markets</button>
+  <button class="back" id="back"><svg class="ic sm"><use href="#i-back"/></svg>Back</button>
   <div class="row between" style="margin-top:6px">
     <div class="row" style="gap:12px"><div class="mono" id="sMono"></div><div><h1 id="sTicker" style="font-size:22px"></h1><div class="muted" id="sName"></div></div></div>
+    <button class="bell" id="sBell" title="Alerts"><svg class="ic"><use href="#i-bell"/></svg></button>
   </div>
   <div class="bigprice num" id="sPrice" style="margin-top:10px"></div>
-  <div class="row" style="gap:10px"><span class="chg num" id="sChg"></span><span class="pill num" id="sGap"></span></div>
+  <div class="row" style="gap:10px;flex-wrap:wrap"><span class="chg num" id="sChg"></span><span class="pill num" id="sGap"></span></div>
+
+  <div class="card" style="padding:12px 10px 10px">
+    <div class="row between" style="padding:0 4px;gap:8px;flex-wrap:wrap">
+      <div class="seg" id="mode"><button data-m="price" class="on">Price</button><button data-m="gap">Gap</button></div>
+      <div class="seg" id="tf"><button data-b="1h">1H</button><button data-b="4h" class="on">4H</button><button data-b="1d">3M</button></div>
+    </div>
+    <div class="row" id="studies" style="gap:6px;padding:10px 4px 0;flex-wrap:wrap">
+      <button class="chip sm on" data-s="ma20"><i class="sw" style="background:#5b8def"></i>MA 20</button>
+      <button class="chip sm" data-s="ma50"><i class="sw" style="background:#c084fc"></i>MA 50</button>
+      <button class="chip sm" data-s="rsi">RSI 14</button>
+    </div>
+    <div class="legend" id="gapLegend" style="display:none;padding:10px 4px 0"><span><i class="sw" style="background:var(--gold)"></i>On-chain</span><span><i class="sw" style="background:#7d8794"></i>Real stock</span><span class="muted" style="font-size:11px">shaded = Wall Street closed</span></div>
+    <div id="chart" style="height:230px;margin-top:8px"></div>
+    <div id="subLabel" class="muted" style="font-weight:700;padding:4px 6px 0;display:none"></div>
+    <div id="subchart" style="height:84px;display:none"></div>
+    <div class="muted" id="chartSrc" style="font-size:11px;padding:6px 6px 0"></div>
+  </div>
+  <div class="callout" id="gapNote" style="display:none"><svg class="ic"><use href="#i-gap"/></svg><div class="muted" id="gapNoteText"></div></div>
+
   <div class="kstats num"><div><small>Market cap</small><b id="kCap">–</b></div><div><small>P/E (TTM)</small><b id="kPe">–</b></div><div><small>Volume 24h</small><b id="kVol">–</b></div></div>
 
-  <div class="card" style="padding:14px 10px 10px">
-    <div class="row between" style="padding:0 6px">
-      <div class="legend"><span><i class="sw" style="background:var(--gold)"></i>On-chain</span><span><i class="sw" style="background:#7d8794"></i>Real stock</span></div>
-      <div class="seg" id="range"><button data-d="1">1D</button><button data-d="3">3D</button><button data-d="7" class="on">7D</button></div>
-    </div>
-    <div id="chart" style="height:220px;margin-top:8px"></div>
-    <div style="padding:2px 6px 0" class="row between"><span class="muted" style="font-weight:700">Gap vs real price</span><span class="muted" style="font-size:11px">shaded = Wall Street closed</span></div>
-    <div id="gapchart" style="height:84px"></div>
-  </div>
-  <div class="callout" id="gapNote"><svg class="ic"><use href="#i-gap"/></svg><div class="muted" id="gapNoteText"></div></div>
-
-  <h2>Where to buy it</h2>
-  <div class="card"><table id="sIssuers"></table>
-    <div class="muted" style="margin-top:8px">Prices per 1 real share. Stock Club picks the cheapest issuer that's trading.</div></div>
+  <div class="card" id="earnCard" style="display:none"><div class="row" style="gap:12px"><div class="cal"><small id="eMon"></small><b id="eDay"></b></div>
+    <div><div class="muted" style="font-weight:700">Next earnings</div><b id="eWhen"></b><div class="muted" id="eEps"></div></div></div></div>
 
   <h2>Trade with your club</h2>
   <div class="card glow" id="tradeCard">
@@ -339,6 +361,33 @@
     <button class="btn sell" id="pSell">Propose: sell</button>
     <div class="muted" style="margin-top:10px">Starts a vote in your group. If it passes, everyone who voted yes trades in their own wallet.</div>
   </div>
+
+  <h2 id="alertsH">Alerts for your club</h2>
+  <div class="card" id="alertCard">
+    <div class="muted">One tap: the bot posts in your group when it happens.</div>
+    <div class="chips" id="alertChips" style="margin-top:10px"></div>
+    <div id="alertList" style="margin-top:8px"></div>
+  </div>
+
+  <h2>Depth · what a buy really costs</h2>
+  <div class="card"><table id="depth"><tr><td><div class="skel"></div></td></tr></table>
+    <div class="muted" style="margin-top:8px">On-chain stocks trade in liquidity pools, not order books. These are live Binance Trading API quotes: the bigger the buy, the more the average price can slip.</div></div>
+
+  <h2>Where to buy it</h2>
+  <div class="card"><table id="sIssuers"></table>
+    <div class="muted" style="margin-top:8px">Prices per 1 real share. Stock Club picks the cheapest issuer that's trading.</div></div>
+
+  <h2>News</h2>
+  <div class="card" style="padding:4px 14px" id="newsList"><div style="padding:14px 0"><div class="skel"></div></div></div>
+</div></div>
+
+<!-- ===== All stocks ===== -->
+<div class="sheet" id="allSheet"><div class="wrap">
+  <button class="back" id="allBack"><svg class="ic sm"><use href="#i-back"/></svg>Markets</button>
+  <h1>All stocks</h1>
+  <div class="muted" id="allCount">Every tokenized stock on BNB Chain (bStocks + Ondo)</div>
+  <input id="allSearch" placeholder="Search ticker or company…" autocomplete="off" />
+  <div class="card glow" style="padding:4px 12px" id="allList"><div style="padding:14px 0"><div class="skel"></div></div></div>
 </div></div>
 
 <div class="toast" id="toast"></div>
@@ -537,21 +586,32 @@ async function loadPortfolio() {
 }
 
 // ---------- stock page ----------
-let current = null, amount = 10, days = 7, charts = [];
-function openStock(t) {
+let current = null, amount = 10, charts = [], mode = "price", bar = "4h";
+const studies = { ma20: true, ma50: false, rsi: false };
+const big2 = (n) => n == null ? "–" : n >= 1e12 ? `$${(n / 1e12).toFixed(2)}T` : n >= 1e9 ? `$${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : `$${fmt(n, 0)}`;
+const ago = (ms) => { const m = Math.round((Date.now() - ms) / 6e4); return m < 60 ? `${m}m ago` : m < 1440 ? `${Math.round(m / 60)}h ago` : `${Math.round(m / 1440)}d ago`; };
+const WATCH = ["NVDA", "TSLA", "AAPL", "MSFT", "META", "AMZN", "GOOGL", "AMD", "MU", "COIN", "CRCL", "QQQ", "SPY", "PLTR", "NFLX"];
+
+async function openStock(t) {
   haptic();
-  const s = market.stocks.find((x) => x.ticker === t); current = s;
+  let s = market?.stocks.find((x) => x.ticker === t);
+  if (!s) { try { s = await api(`stock?ticker=${t}`); } catch (e) { toast(e.message, "bad"); return; } }
+  current = s; if (s.logo) LOGOS[t] = s.logo;
   mono(s.ticker, $("sMono")); $("sTicker").textContent = s.ticker; $("sName").textContent = s.name;
   $("sPrice").textContent = `$${fmt(s.onchain)}`;
   $("sChg").className = `chg num ${(s.changePct ?? 0) >= 0 ? "up" : "down"}`; $("sChg").textContent = s.changePct != null ? `${pct(s.changePct)} vs last close` : "";
-  $("sGap").innerHTML = s.gapPct != null ? `${icon("gap", "sm")} gap ${pct(s.gapPct)} vs real $${fmt(s.real.price)}` : "";
-  $("kCap").textContent = big(s.stats?.marketCap); $("kPe").textContent = s.stats?.pe ? s.stats.pe.toFixed(1) : "–"; $("kVol").textContent = big(s.stats?.volume24h);
+  $("sGap").innerHTML = s.gapPct != null ? `${icon("gap", "sm")} gap ${pct(s.gapPct)} vs real $${fmt(s.real.price)}` : "no real price";
+  $("kCap").textContent = big2(s.stats?.marketCap); $("kPe").textContent = s.stats?.pe ? s.stats.pe.toFixed(1) : "–"; $("kVol").textContent = big2(s.stats?.volume24h);
   $("sIssuers").innerHTML = s.issuers.map((i) => `<tr><td>${i.logo ? `<img class="ilogo" src="${i.logo}" alt="" onerror="this.remove()" />` : ""}<b>${i.name}</b> <span class="muted">${i.symbol}</span> ${i.open ? "" : `<span class="pill closed">${icon("pause", "sm")}paused</span>`}</td><td class="num">$${fmt(i.price)}</td></tr>`).join("")
     + (s.real ? `<tr><td class="muted">Real stock · last price</td><td class="muted num">$${fmt(s.real.price)}</td></tr>` : "");
-  renderTrade();
+  document.querySelector('#mode [data-m="gap"]').style.display = WATCH.includes(t) ? "" : "none";
+  if (!WATCH.includes(t)) mode = "price";
+  setSeg("#mode", "m", mode);
+  renderTrade(); renderAlerts();
   $("sheet").classList.add("on"); $("sheet").scrollTop = 0; tg?.BackButton?.show();
-  drawCharts();
+  drawCharts(); loadNews(t); loadDepth(t);
 }
+const setSeg = (sel, key, v) => document.querySelectorAll(`${sel} button`).forEach((x) => x.classList.toggle("on", x.dataset[key] === v));
 function renderTrade() {
   const club = me?.clubs?.[0], s = current;
   $("tradeClub").textContent = club ? `${club.name} · max $${club.rules.max_per_trade} per trade` : "Join or start a club to trade together.";
@@ -563,9 +623,8 @@ function renderTrade() {
   $("pSell").innerHTML = `${icon("vote")}Propose: sell`;
   $("pBuy").disabled = $("pSell").disabled = !club || !s.tradable;
 }
-function closeStock() { $("sheet").classList.remove("on"); tg?.BackButton?.hide(); }
-$("back").onclick = closeStock; tg?.BackButton?.onClick(closeStock);
-document.querySelectorAll("#range button").forEach((b) => b.onclick = () => { days = Number(b.dataset.d); document.querySelectorAll("#range button").forEach((x) => x.classList.toggle("on", x === b)); haptic(); drawCharts(); });
+function closeSheet() { if ($("sheet").classList.contains("on")) $("sheet").classList.remove("on"); else $("allSheet").classList.remove("on"); if (!$("sheet").classList.contains("on") && !$("allSheet").classList.contains("on")) tg?.BackButton?.hide(); }
+$("back").onclick = closeSheet; $("allBack").onclick = closeSheet; tg?.BackButton?.onClick(closeSheet);
 
 async function propose(side) {
   const club = me?.clubs?.[0]; if (!club || !current) return;
@@ -580,47 +639,161 @@ async function propose(side) {
 }
 $("pBuy").onclick = () => propose("buy"); $("pSell").onclick = () => propose("sell");
 
-// Charts: TradingView Lightweight Charts. Top: on-chain (area) vs real (dashed). Bottom: gap %.
-// Both shade the hours Wall Street was closed (New York time).
+// ----- alerts -----
+async function renderAlerts() {
+  const club = me?.clubs?.[0], s = current;
+  $("alertsH").style.display = $("alertCard").style.display = club ? "" : "none";
+  if (!club) return;
+  const p = s.onchain, r5 = (x) => x >= 100 ? Math.round(x) : Number(x.toFixed(2));
+  const opts = [
+    ...(s.real ? [{ k: "gap", v: 1, l: "Gap over 1%" }, { k: "gap", v: 2, l: "Gap over 2%" }] : []),
+    { k: "above", v: r5(p * 1.05), l: `Above $${fmt(r5(p * 1.05), p >= 100 ? 0 : 2)} (+5%)` },
+    { k: "below", v: r5(p * 0.95), l: `Below $${fmt(r5(p * 0.95), p >= 100 ? 0 : 2)} (−5%)` },
+  ];
+  $("alertChips").innerHTML = opts.map((o, k) => `<button class="chip sm" data-k="${k}">${icon("bell", "sm")}&nbsp;${o.l}</button>`).join("");
+  document.querySelectorAll("#alertChips .chip").forEach((c) => c.onclick = async () => {
+    const o = opts[Number(c.dataset.k)]; haptic(); c.disabled = true;
+    try { const r = await api("alert", { chatId: club.chatId, ticker: s.ticker, kind: o.k, value: o.v }); tg?.HapticFeedback?.notificationOccurred("success"); toast(`Alert set: <b>${r.text}</b>. I'll post in ${club.name} when it happens.`, "ok"); renderAlerts(); }
+    catch (e) { toast(e.message, "bad"); c.disabled = false; }
+  });
+  try {
+    const list = (await api(`alerts?chatId=${club.chatId}`)).filter((a) => a.ticker === s.ticker);
+    $("alertList").innerHTML = list.map((a) => `<div class="alrow"><span>${icon("bell", "sm gold")} ${a.text}</span><span class="muted">by ${a.by ?? "?"}</span></div>`).join("");
+  } catch { $("alertList").innerHTML = ""; }
+}
+$("sBell").onclick = () => { haptic(); $("alertCard").scrollIntoView({ behavior: "smooth", block: "center" }); };
+
+// ----- news + earnings -----
+async function loadNews(t) {
+  $("newsList").innerHTML = `<div style="padding:14px 0"><div class="skel"></div><br><div class="skel"></div></div>`; $("earnCard").style.display = "none";
+  try {
+    const n = await fetch(`/api/app/news?ticker=${t}`).then((r) => r.json());
+    if (current?.ticker !== t) return;
+    if (n.earnings) {
+      const d = new Date(n.earnings.date + "T12:00:00Z");
+      $("eMon").textContent = d.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" }).toUpperCase(); $("eDay").textContent = d.getUTCDate();
+      $("eWhen").textContent = `${d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" })} · ${n.earnings.hour === "amc" ? "after the close" : n.earnings.hour === "bmo" ? "before the open" : "time TBA"}`;
+      $("eEps").textContent = n.earnings.epsEstimate != null ? `Q${n.earnings.quarter} · EPS estimate $${n.earnings.epsEstimate.toFixed(2)}. Big after-hours moves show up on-chain first.` : "";
+      $("earnCard").style.display = "";
+    }
+    $("newsList").innerHTML = n.news.length ? n.news.map((x, k) => `<div class="news" data-k="${k}">${x.image ? `<img src="${x.image}" alt="" loading="lazy" onerror="this.remove()" />` : ""}<div style="min-width:0"><b>${x.headline.replace(/</g, "&lt;")}</b><div class="muted" style="margin-top:4px">${x.source} · ${ago(x.at)}</div></div></div>`).join("") : `<div class="muted" style="padding:14px 0">No news this week.</div>`;
+    document.querySelectorAll(".news").forEach((el) => el.onclick = () => { const u = n.news[Number(el.dataset.k)].url; tg?.openLink ? tg.openLink(u) : window.open(u, "_blank"); });
+  } catch { $("newsList").innerHTML = `<div class="muted" style="padding:14px 0">Couldn't load news.</div>`; }
+}
+
+// ----- depth (price impact from live quotes) -----
+async function loadDepth(t) {
+  $("depth").innerHTML = `<tr><td><div class="skel"></div></td></tr>`;
+  try {
+    const rows = await fetch(`/api/app/impact?ticker=${t}`).then((r) => r.json());
+    if (current?.ticker !== t) return;
+    const base = rows.find((r) => r.avgPrice)?.avgPrice;
+    $("depth").innerHTML = `<tr><td class="muted" style="font-size:12px;font-weight:700">BUY SIZE</td><td class="muted" style="font-size:12px;font-weight:700;text-align:right">AVG PRICE / SHARE</td><td class="muted" style="font-size:12px;font-weight:700">SLIPPAGE</td></tr>` +
+      rows.map((r) => { if (!r.avgPrice) return `<tr><td class="num">$${r.usd.toLocaleString()}</td><td class="muted" colspan="2">no quote</td></tr>`;
+        const slip = base ? (r.avgPrice / base - 1) * 100 : 0;
+        return `<tr><td class="num"><b>$${r.usd.toLocaleString()}</b></td><td class="num" style="text-align:right">$${fmt(r.avgPrice)}</td><td class="num ${slip > 0.5 ? "down" : "up"}">${slip < 0.005 ? "≈ 0%" : `+${slip.toFixed(2)}%`}</td></tr>`; }).join("");
+  } catch { $("depth").innerHTML = `<tr><td class="muted">Couldn't get quotes.</td></tr>`; }
+}
+
+// ----- charts: Price (on-chain candles + studies) / Gap (on-chain vs real, our data) -----
+document.querySelectorAll("#mode button").forEach((b) => b.onclick = () => { mode = b.dataset.m; setSeg("#mode", "m", mode); haptic(); drawCharts(); });
+document.querySelectorAll("#tf button").forEach((b) => b.onclick = () => { bar = b.dataset.b; setSeg("#tf", "b", bar); haptic(); drawCharts(); });
+document.querySelectorAll("#studies button").forEach((b) => b.onclick = () => { studies[b.dataset.s] = !studies[b.dataset.s]; b.classList.toggle("on", studies[b.dataset.s]); haptic(); drawCharts(); });
 const closedNY = (ts) => { const d = new Date(new Date(ts).toLocaleString("en-US", { timeZone: "America/New_York" })), m = d.getHours() * 60 + d.getMinutes(); return d.getDay() === 0 || d.getDay() === 6 || m < 570 || m >= 960; };
-async function drawCharts() {
-  charts.forEach((c) => c.remove()); charts = [];
-  $("chart").innerHTML = `<div class="skel" style="height:220px"></div>`; $("gapchart").innerHTML = "";
-  const { points } = await fetch(`/api/app/chart?ticker=${current.ticker}&days=${days}`).then((r) => r.json());
-  $("chart").innerHTML = "";
-  const pts = (points ?? []).filter((p) => p.t >= Date.now() - days * 86400_000);
-  if (!pts.length || !window.LightweightCharts) { $("chart").innerHTML = `<div class="muted" style="padding:40px 0;text-align:center">No history yet.</div>`; return; }
+const sma = (c, n) => c.map((_, i) => i < n - 1 ? null : c.slice(i - n + 1, i + 1).reduce((a, b) => a + b, 0) / n);
+function rsi(c, n = 14) { const out = Array(c.length).fill(null); let g = 0, l = 0;
+  for (let i = 1; i < c.length; i++) { const d = c[i] - c[i - 1], up = Math.max(d, 0), dn = Math.max(-d, 0);
+    if (i <= n) { g += up; l += dn; if (i === n) { g /= n; l /= n; out[i] = 100 - 100 / (1 + g / (l || 1e-9)); } }
+    else { g = (g * (n - 1) + up) / n; l = (l * (n - 1) + dn) / n; out[i] = 100 - 100 / (1 + g / (l || 1e-9)); } }
+  return out; }
+function baseChart(el, h, timeVisible) {
   const LC = window.LightweightCharts;
-  const base = (el, h) => LC.createChart(el, {
-    height: h, autoSize: true,
+  return LC.createChart(el, { height: h, autoSize: true,
     layout: { background: { type: "solid", color: "transparent" }, textColor: "#7d8794", fontFamily: "Manrope", fontSize: 11 },
     grid: { vertLines: { visible: false }, horzLines: { color: "rgba(35,41,51,.7)" } },
-    rightPriceScale: { borderVisible: false }, timeScale: { borderVisible: false, timeVisible: days <= 3, secondsVisible: false },
+    rightPriceScale: { borderVisible: false }, timeScale: { borderVisible: false, timeVisible, secondsVisible: false },
     crosshair: { vertLine: { color: "#3a4352", labelBackgroundColor: "#1b2028" }, horzLine: { color: "#3a4352", labelBackgroundColor: "#1b2028" } },
-    handleScroll: false, handleScale: false,
-  });
-  const T = (p) => Math.floor(p.t / 1000);
-  const shadeData = pts.map((p) => ({ time: T(p), value: 1, color: closedNY(p.t) ? "rgba(255,255,255,0.045)" : "rgba(0,0,0,0)" }));
-  const addShade = (c) => { const s = c.addHistogramSeries({ priceScaleId: "shade", priceLineVisible: false, lastValueVisible: false }); c.priceScale("shade").applyOptions({ scaleMargins: { top: 0, bottom: 0 }, visible: false }); s.setData(shadeData); };
-
-  const c1 = base($("chart"), 220); charts.push(c1); addShade(c1);
-  const real = c1.addLineSeries({ color: "#7d8794", lineWidth: 1.5, lineStyle: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
-  real.setData(pts.map((p) => ({ time: T(p), value: p.real })));
-  const on = c1.addAreaSeries({ lineColor: "#f0b90b", topColor: "rgba(240,185,11,.28)", bottomColor: "rgba(240,185,11,0)", lineWidth: 2, priceLineColor: "#f0b90b", priceFormat: { type: "price", precision: 2, minMove: 0.01 } });
-  on.setData(pts.map((p) => ({ time: T(p), value: p.onchain })));
-  c1.timeScale().fitContent();
-
-  const c2 = base($("gapchart"), 84); charts.push(c2); addShade(c2);
-  c2.applyOptions({ timeScale: { visible: false } });
-  const gap = c2.addHistogramSeries({ priceFormat: { type: "custom", formatter: (v) => `${v.toFixed(2)}%` }, priceLineVisible: false });
-  gap.setData(pts.map((p) => { const g = (p.onchain / p.real - 1) * 100; return { time: T(p), value: g, color: g >= 0 ? "rgba(22,199,132,.75)" : "rgba(240,77,99,.75)" }; }));
-  c2.timeScale().fitContent();
-
-  const g = pts.reduce((b, p) => Math.abs(p.onchain / p.real - 1) > Math.abs(b.onchain / b.real - 1) ? p : b, pts[0]);
-  const gPct = (g.onchain / g.real - 1) * 100;
-  const when = new Date(g.t).toLocaleString("en-US", { weekday: "short", hour: "numeric" });
-  $("gapNoteText").innerHTML = `Biggest gap in this view: <b class="${gPct >= 0 ? "up" : "down"}">${pct(gPct)}</b> on ${when}${closedNY(g.t) ? ", while Wall Street was closed" : ""}. Your club blocks trades when the gap is over its limit.`;
+    handleScroll: true, handleScale: true });
 }
+function shade(chart, times) {
+  const s = chart.addHistogramSeries({ priceScaleId: "shade", priceLineVisible: false, lastValueVisible: false });
+  chart.priceScale("shade").applyOptions({ scaleMargins: { top: 0, bottom: 0 }, visible: false });
+  s.setData(times.map((t) => ({ time: t, value: 1, color: closedNY(t * 1000) ? "rgba(255,255,255,0.045)" : "rgba(0,0,0,0)" })));
+}
+async function drawCharts() {
+  charts.forEach((c) => c.remove()); charts = [];
+  const t = current.ticker, LC = window.LightweightCharts;
+  $("chart").innerHTML = `<div class="skel" style="height:230px"></div>`; $("subchart").innerHTML = ""; $("subchart").style.display = $("subLabel").style.display = "none";
+  $("studies").style.display = mode === "price" ? "" : "none"; $("gapLegend").style.display = mode === "gap" ? "" : "none"; $("tf").style.display = mode === "price" ? "" : "none";
+  $("gapNote").style.display = "none";
+  if (!LC) { $("chart").innerHTML = `<div class="muted">Charts couldn't load.</div>`; return; }
+  if (mode === "price") {
+    const cs = await fetch(`/api/app/candles?ticker=${t}&bar=${bar}`).then((r) => r.json()).catch(() => []);
+    if (current.ticker !== t) return;
+    $("chart").innerHTML = "";
+    if (!cs.length) { $("chart").innerHTML = `<div class="muted" style="padding:40px 0;text-align:center">No candles for this token yet.</div>`; return; }
+    const c1 = baseChart($("chart"), 230, bar !== "1d"); charts.push(c1);
+    if (bar !== "1d") shade(c1, cs.map((x) => x.t));
+    const cd = c1.addCandlestickSeries({ upColor: "#16c784", downColor: "#f04d63", borderVisible: false, wickUpColor: "#16c784", wickDownColor: "#f04d63", priceFormat: { type: "price", precision: 2, minMove: 0.01 } });
+    cd.setData(cs.map((x) => ({ time: x.t, open: x.o, high: x.h, low: x.l, close: x.c })));
+    const closes = cs.map((x) => x.c);
+    for (const [k, n, col] of [["ma20", 20, "#5b8def"], ["ma50", 50, "#c084fc"]]) if (studies[k]) {
+      const l = c1.addLineSeries({ color: col, lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+      l.setData(sma(closes, n).map((v, i) => v == null ? null : { time: cs[i].t, value: v }).filter(Boolean));
+    }
+    c1.timeScale().fitContent();
+    if (studies.rsi) {
+      $("subchart").style.display = $("subLabel").style.display = ""; $("subLabel").textContent = "RSI 14 · over 70 = stretched up, under 30 = stretched down";
+      const c2 = baseChart($("subchart"), 84, false); charts.push(c2); c2.applyOptions({ timeScale: { visible: false } });
+      const r = c2.addLineSeries({ color: "#f0b90b", lineWidth: 1.5, priceLineVisible: false, priceFormat: { type: "price", precision: 0, minMove: 1 } });
+      r.setData(rsi(closes).map((v, i) => v == null ? null : { time: cs[i].t, value: v }).filter(Boolean));
+      r.createPriceLine({ price: 70, color: "rgba(240,77,99,.6)", lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
+      r.createPriceLine({ price: 30, color: "rgba(22,199,132,.6)", lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
+      c2.timeScale().fitContent();
+    }
+    const span = bar === "1h" ? "last ~4 days" : bar === "4h" ? "last ~16 days" : `since ${new Date(cs[0].t * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" })} (token launch)`;
+    $("chartSrc").textContent = `On-chain ${current.issuers.find((i) => i.name === "bStocks") ? "bStocks" : current.issuers[0]?.name} candles from Binance Web3 API, ${span}.${bar !== "1d" ? " Shaded = Wall Street closed." : ""}`;
+    return;
+  }
+  // Gap view: our own 15-minute recordings since Oct 4 (the 15 stocks we track)
+  const { points } = await fetch(`/api/app/chart?ticker=${t}&days=7`).then((r) => r.json());
+  if (current.ticker !== t) return;
+  $("chart").innerHTML = "";
+  const pts = points ?? [];
+  if (!pts.length) { $("chart").innerHTML = `<div class="muted" style="padding:40px 0;text-align:center">No gap history yet.</div>`; return; }
+  const T = (p) => Math.floor(p.t / 1000);
+  const c1 = baseChart($("chart"), 230, true); charts.push(c1); shade(c1, pts.map(T));
+  c1.addLineSeries({ color: "#7d8794", lineWidth: 1.5, lineStyle: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }).setData(pts.map((p) => ({ time: T(p), value: p.real })));
+  c1.addAreaSeries({ lineColor: "#f0b90b", topColor: "rgba(240,185,11,.28)", bottomColor: "rgba(240,185,11,0)", lineWidth: 2, priceLineColor: "#f0b90b" }).setData(pts.map((p) => ({ time: T(p), value: p.onchain })));
+  c1.timeScale().fitContent();
+  $("subchart").style.display = $("subLabel").style.display = ""; $("subLabel").textContent = "Gap vs real price (%)";
+  const c2 = baseChart($("subchart"), 84, false); charts.push(c2); c2.applyOptions({ timeScale: { visible: false } }); shade(c2, pts.map(T));
+  c2.addHistogramSeries({ priceFormat: { type: "custom", formatter: (v) => `${v.toFixed(2)}%` }, priceLineVisible: false })
+    .setData(pts.map((p) => { const g = (p.onchain / p.real - 1) * 100; return { time: T(p), value: g, color: g >= 0 ? "rgba(22,199,132,.75)" : "rgba(240,77,99,.75)" }; }));
+  c2.timeScale().fitContent();
+  const g = pts.reduce((b, p) => Math.abs(p.onchain / p.real - 1) > Math.abs(b.onchain / b.real - 1) ? p : b, pts[0]), gPct = (g.onchain / g.real - 1) * 100;
+  $("gapNote").style.display = ""; $("gapNoteText").innerHTML = `Biggest gap this week: <b class="${gPct >= 0 ? "up" : "down"}">${pct(gPct)}</b> on ${new Date(g.t).toLocaleString("en-US", { weekday: "short", hour: "numeric" })}${closedNY(g.t) ? ", while Wall Street was closed" : ""}. Your club blocks trades when the gap is over its limit.`;
+  $("chartSrc").textContent = "Our own data: on-chain vs real price, recorded every 15 minutes since Oct 4.";
+}
+
+// ---------- all stocks ----------
+let universe = null;
+async function openAll() {
+  haptic(); $("allSheet").classList.add("on"); tg?.BackButton?.show(); $("allSearch").value = "";
+  if (!universe) { try { universe = await fetch("/api/app/universe").then((r) => r.json()); } catch { $("allList").innerHTML = `<div class="muted" style="padding:14px 0">Couldn't load the list.</div>`; return; } }
+  for (const u of universe) if (u.logo) LOGOS[u.ticker] = u.logo;
+  $("allCount").textContent = `${universe.length} tokenized stocks on BNB Chain (bStocks + Ondo)`;
+  renderAll("");
+}
+function renderAll(q) {
+  q = q.trim().toUpperCase();
+  const rows = universe.filter((u) => !q || u.ticker.includes(q) || u.name.toUpperCase().includes(q)).slice(0, 80);
+  $("allList").innerHTML = rows.map((u) => `<div class="stock" style="grid-template-columns:40px 1fr auto" data-t="${u.ticker}">${mono(u.ticker)}<div style="min-width:0"><b>${u.ticker}</b><div class="name">${u.name} · ${u.issuers.join(" + ")}</div></div><div class="right"><div class="price num">$${fmt(u.onchain)}</div>${u.tradable ? "" : `<div class="gaptag">paused</div>`}</div></div>`).join("") || `<div class="muted" style="padding:14px 0">No match.</div>`;
+  document.querySelectorAll("#allList .stock").forEach((el) => el.onclick = () => openStock(el.dataset.t));
+}
+$("allSearch").oninput = (e) => renderAll(e.target.value);
+$("browseAll").onclick = openAll;
+fetch("/api/app/universe").then((r) => r.json()).then((u) => { universe = u; $("allN").textContent = `${u.length} →`; }).catch(() => {});
 
 // ---------- onboarding (swipe or tap Next) ----------
 // Shared SVG defs for the diagrams (gold metal, glass, glow).
