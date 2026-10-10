@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640">
+  <defs>
+    <radialGradient id="bg" cx="0.75" cy="0.35" r="0.9"><stop offset="0" stop-color="#2a220c"/><stop offset="0.45" stop-color="#121214"/><stop offset="1" stop-color="#060709"/></radialGradient>
+    <pattern id="g" width="18" height="18" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><path d="M0 9 H18" stroke="#f0b90b" stroke-opacity="0.05" stroke-width="1"/></pattern>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff1c2"/><stop offset="0.5" stop-color="#f0b90b"/><stop offset="1" stop-color="#c58d07"/></linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f242c"/><stop offset="1" stop-color="#121519"/></linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f0b90b" stop-opacity=".8"/><stop offset=".5" stop-color="#f0b90b" stop-opacity=".1"/><stop offset="1" stop-color="#f0b90b" stop-opacity=".5"/></linearGradient>
+    <linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f0b90b" stop-opacity=".35"/><stop offset="1" stop-color="#f0b90b" stop-opacity="0"/></linearGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="30"/></filter>
+  </defs>
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <rect width="1280" height="640" fill="url(#g)"/>
+  <circle cx="930" cy="300" r="220" fill="#f0b90b" opacity=".13" filter="url(#blur)"/>
+
+  <clipPath id="lc"><circle cx="136" cy="132" r="56"/></clipPath><image href="LOGO" x="80" y="76" width="112" height="112" clip-path="url(#lc)"/>
+  <text x="80" y="290" font-family="Manrope" font-weight="800" font-size="92" fill="#f3f4f6" letter-spacing="-3">Stock</text>
+  <text x="80" y="388" font-family="Manrope" font-weight="800" font-size="92" fill="url(#gold)" letter-spacing="-3">Club</text>
+  <rect x="84" y="420" width="90" height="5" rx="2.5" fill="#f0b90b"/>
+  <text x="80" y="476" font-family="Manrope" font-weight="600" font-size="30" fill="#c9ced6">Trade tokenized stocks with friends.</text>
+  <text x="80" y="518" font-family="Manrope" font-weight="600" font-size="30" fill="#c9ced6">Even when Wall Street sleeps.</text>
+  <text x="80" y="580" font-family="Manrope" font-weight="800" font-size="18" fill="#7d8794" letter-spacing="3">BNB CHAIN · BSTOCKS · ONDO · TELEGRAM</text>
+
+  <!-- product card -->
+  <g transform="translate(700 92)">
+    <rect width="500" height="440" rx="34" fill="url(#card)" stroke="url(#edge)" stroke-width="2"/>
+    <circle cx="60" cy="64" r="28" fill="#76b900"/><text x="60" y="71" text-anchor="middle" font-family="Manrope" font-weight="800" font-size="16" fill="#fff">NVDA</text>
+    <text x="104" y="58" font-family="Manrope" font-weight="800" font-size="26" fill="#eef0f3">NVDA</text>
+    <text x="104" y="84" font-family="Manrope" font-weight="600" font-size="17" fill="#7d8794">Nvidia · on-chain</text>
+    <text x="460" y="62" text-anchor="end" font-family="Manrope" font-weight="800" font-size="30" fill="#eef0f3">$230.44</text>
+    <rect x="352" y="74" width="108" height="30" rx="15" fill="#16c784" fill-opacity=".15"/><text x="406" y="95" text-anchor="middle" font-family="Manrope" font-weight="800" font-size="16" fill="#16c784">GAP +0.8%</text>
+    <!-- weekend band -->
+    <rect x="330" y="128" width="140" height="200" rx="14" fill="#ffffff" fill-opacity=".04"/>
+    <text x="400" y="150" text-anchor="middle" font-family="Manrope" font-weight="800" font-size="13" fill="#7d8794" letter-spacing="2">WEEKEND</text>
+    <!-- candles -->
+    <g>
+      <line x1="56" y1="230" x2="56" y2="300" stroke="#f04d63" stroke-width="3"/><rect x="46" y="244" width="20" height="40" rx="4" fill="#f04d63"/>
+      <line x1="96" y1="220" x2="96" y2="290" stroke="#16c784" stroke-width="3"/><rect x="86" y="236" width="20" height="44" rx="4" fill="#16c784"/>
+      <line x1="136" y1="205" x2="136" y2="270" stroke="#16c784" stroke-width="3"/><rect x="126" y="214" width="20" height="40" rx="4" fill="#16c784"/>
+      <line x1="176" y1="210" x2="176" y2="262" stroke="#f04d63" stroke-width="3"/><rect x="166" y="220" width="20" height="30" rx="4" fill="#f04d63"/>
+      <line x1="216" y1="180" x2="216" y2="250" stroke="#16c784" stroke-width="3"/><rect x="206" y="192" width="20" height="46" rx="4" fill="#16c784"/>
+      <line x1="256" y1="170" x2="256" y2="232" stroke="#16c784" stroke-width="3"/><rect x="246" y="178" width="20" height="40" rx="4" fill="#16c784"/>
+      <line x1="296" y1="176" x2="296" y2="226" stroke="#f04d63" stroke-width="3"/><rect x="286" y="184" width="20" height="28" rx="4" fill="#f04d63"/>
+    </g>
+    <path d="M300 196 C 340 196, 360 182, 390 172 S 440 150, 470 146" fill="none" stroke="url(#gold)" stroke-width="4" stroke-linecap="round"/>
+    <path d="M300 196 C 340 196, 360 182, 390 172 S 440 150, 470 146 L470 328 L300 328 Z" fill="url(#area)"/>
+    <path d="M300 200 H470" stroke="#7d8794" stroke-width="2" stroke-dasharray="6 6"/>
+    <!-- vote bar -->
+    <rect x="30" y="352" width="440" height="62" rx="18" fill="#0b0d11" stroke="#2c3440"/>
+    <text x="52" y="378" font-family="Manrope" font-weight="800" font-size="15" fill="#eef0f3">Buy $10 of NVDA each?</text>
+    <rect x="52" y="390" width="300" height="10" rx="5" fill="#1b2028"/><rect x="52" y="390" width="300" height="10" rx="5" fill="#16c784"/>
+    <text x="450" y="400" text-anchor="end" font-family="Manrope" font-weight="800" font-size="15" fill="#16c784">3/3 YES</text>
+  </g>
+</svg>

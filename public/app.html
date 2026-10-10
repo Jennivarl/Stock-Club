@@ -971,8 +971,13 @@ document.querySelector("#v-home .brand").onclick = () => { haptic(); showOnboard
   if (store.get("onboarded") !== "1") showOnboarding(0);
   loadSparks();
   // Opened from a group's "View NVDA chart" button (t.me/<bot>/app?startapp=NVDA): go straight to that stock.
-  const startTicker = String(tg?.initDataUnsafe?.start_param ?? "").toUpperCase();
+  // Links into the app: ?startapp=NVDA (a stock), ?startapp=intro or ?intro=1 (the intro), ?tab=port (Portfolio)
+  const q = new URLSearchParams(location.search), sp = String(tg?.initDataUnsafe?.start_param ?? "");
+  const wantIntro = sp === "intro" || q.get("intro") === "1";
+  const startTicker = !wantIntro ? sp.toUpperCase() : "";
   if (startTicker) { store.set("onboarded", "1"); $("ob").classList.remove("on"); }
+  if (wantIntro) showOnboarding(0);
+  if (q.get("tab")) document.querySelector(`.tab[data-v="${q.get("tab")}"]`)?.click();
   await Promise.all([loadMarkets().catch((e) => { $("list").innerHTML = `<div class="muted" style="padding:14px 0">Couldn't load prices: ${e.message}</div>`; }), loadMe()]);
   if (me?.clubs?.length) loadMarkets().catch(() => {}); // redraw the gap card with the club's real limit
   refreshStart();

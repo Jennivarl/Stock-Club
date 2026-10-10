@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Bot, type Context } from "grammy";
+import { Bot, InputFile, type Api, type Context } from "grammy";
 import {
   addMember, clubsOf, createClub, db, expireOldTapOrders, getClub, getTapOrder, getMember, getMembers, getRules, RULE_KEYS, setAutopilot, setPaused, setRule, type Rules,
 } from "./db.js";
@@ -57,6 +57,99 @@ function rulesText(r: Rules): string {
   ].filter(Boolean).join("\n");
 }
 
+// ---------- Welcome: banner + buttons (like the big Telegram mini apps) ----------
+// The banner is uploaded once; after that Telegram gives us a file_id to reuse.
+let bannerId: string | undefined;
+const BANNER_FILE = "public/assets/banner-1280.png";
+async function sendBanner(api: Api, chatId: number, caption: string, keyboard: any[][]) {
+  const m = await api.sendPhoto(chatId, bannerId ?? new InputFile(BANNER_FILE), { caption, parse_mode: "HTML", reply_markup: { inline_keyboard: keyboard } });
+  bannerId ??= m.photo?.at(-1)?.file_id;
+}
+const WELCOME_POINTS =
+  "• Live prices, candle charts, news and the <b>weekend gap</b> for 448 stocks\n" +
+  "• Propose a trade, the group votes, <b>everyone buys in their own wallet</b>\n" +
+  "• <b>Autopilot</b> buys for you with a Binance Agentic Wallet\n" +
+  "• Alerts the moment an on-chain price drifts from Wall Street";
+async function welcomePrivate(ctx: Context) {
+  const me = await ctx.api.getMe();
+  await sendBanner(ctx.api, ctx.chat!.id,
+    `<b>Welcome to Stock Club</b>\n\nTrade tokenized stocks on BNB Chain with your friends, even when Wall Street sleeps.\n\n${WELCOME_POINTS}`,
+    [
+      [{ text: "📈 Open Stock Club", web_app: { url: `${WEB_URL}/app` } }],
+      [{ text: "👥 Add me to a group", url: `https://t.me/${me.username}?startgroup=club` }],
+      [{ text: "🧭 How it works", web_app: { url: `${WEB_URL}/app?intro=1` } }, { text: "🤖 Autopilot", callback_data: "autopilot" }],
+    ]);
+  // Quick menu under the message box (Web App buttons here only work in private chats).
+  await ctx.reply("Quick menu is below 👇  Or type /help for every command.", {
+    reply_markup: {
+      keyboard: [
+        [{ text: "📈 Markets", web_app: { url: `${WEB_URL}/app` } }, { text: "💼 Portfolio", web_app: { url: `${WEB_URL}/app?tab=port` } }],
+        [{ text: "🔔 My alerts" }, { text: "❓ Help" }],
+      ],
+      resize_keyboard: true, is_persistent: true,
+    },
+  });
+}
+async function welcomeGroup(api: Api, chatId: number) {
+  const club = getClub(chatId);
+  await sendBanner(api, chatId,
+    club
+      ? `<b>Stock Club is here</b> 👋\n\nThis group is the club <b>${esc(club.name)}</b>. New here? Tap Join.\n\n${WELCOME_POINTS}`
+      : `<b>Hello, investors</b> 👋\n\nI'm Stock Club. I turn this group into an investing club for tokenized stocks on BNB Chain.\n\n${WELCOME_POINTS}\n\nTap <b>Start a club here</b> to begin.`,
+    [
+      [club ? { text: "✅ Join the club", callback_data: "join" } : { text: "🚀 Start a club here", callback_data: "club_start" }],
+      [{ text: "📈 Open Stock Club", url: await appLink(api) }],
+      [{ text: "🧭 How it works", url: await appLink(api, "intro") }],
+    ]);
+}
+
+// Opens a club in this group. Used by /club start and the "Start a club here" button.
+async function startClub(api: Api, chatId: number, title: string, userId: number, name: string) {
+  const existing = getClub(chatId);
+  if (existing) return api.sendMessage(chatId, `This group already has a club: <b>${esc(existing.name)}</b>. Tap Join or send /join.`, { parse_mode: "HTML" });
+  const club = createClub(chatId, title.slice(0, 60), userId, name);
+  await api.sendMessage(chatId,
+    `🎉 <b>${esc(club.name)}</b> is open!\n${esc(name)} is the first member.\n\nEveryone else: tap <b>Join the club</b>.\n\n${rulesText(getRules(club.id))}`,
+    { parse_mode: "HTML", reply_markup: { inline_keyboard: [[{ text: "✅ Join the club", callback_data: "join" }], [{ text: "📈 Open Stock Club", url: await appLink(api) }]] } });
+}
+
+// Bot added to a group -> welcome banner.
+bot.on("my_chat_member", async (ctx) => {
+  const u = ctx.myChatMember;
+  const was = u.old_chat_member.status, now = u.new_chat_member.status;
+  if ((u.chat.type === "group" || u.chat.type === "supergroup") && ["left", "kicked"].includes(was) && ["member", "administrator"].includes(now)) {
+    await welcomeGroup(ctx.api, u.chat.id).catch((e) => console.error("welcome group", e.message));
+  }
+});
+
+bot.callbackQuery("club_start", async (ctx) => {
+  const chat = ctx.callbackQuery.message?.chat;
+  if (!chat || chat.type === "private") return ctx.answerCallbackQuery({ text: "Add me to a group first." });
+  const name = [ctx.from.first_name, ctx.from.last_name].filter(Boolean).join(" ") || ctx.from.username || "Member";
+  await ctx.answerCallbackQuery();
+  await startClub(ctx.api, chat.id, (chat as { title?: string }).title ?? "Stock Club", ctx.from.id, name);
+});
+bot.callbackQuery("join", async (ctx) => {
+  const chat = ctx.callbackQuery.message?.chat;
+  const club = chat ? getClub(chat.id) : undefined;
+  if (!club) return ctx.answerCallbackQuery({ text: "No club here yet. Tap Start a club here." });
+  const name = [ctx.from.first_name, ctx.from.last_name].filter(Boolean).join(" ") || ctx.from.username || "Member";
+  const added = addMember(club.id, ctx.from.id, name);
+  await ctx.answerCallbackQuery({ text: added ? `Welcome to ${club.name}!` : "You're already a member." });
+  if (added) await ctx.api.sendMessage(chat!.id, `👋 <b>${esc(name)}</b> joined <b>${esc(club.name)}</b> (${getMembers(club.id).length} members).`, { parse_mode: "HTML" });
+});
+bot.callbackQuery("autopilot", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  await ctx.reply("🤖 <b>Autopilot</b> buys for you automatically when your club's vote passes, using your own Binance Agentic Wallet. You set the limits; Stock Club never holds your money.\n\nTurn it on: /autopilot", { parse_mode: "HTML" });
+});
+bot.hears("🔔 My alerts", async (ctx) => {
+  const clubs = clubsOf(ctx.from!.id);
+  if (!clubs.length) return ctx.reply("You're not in a club yet. Add me to a group and tap Start a club here.");
+  const lines = clubs.map((c) => { const l = activeAlerts(c.id); return `<b>${esc(c.name)}</b>\n${l.length ? l.map((a) => `${a.id}. ${esc(describe(a))}`).join("\n") : "No active alerts."}`; });
+  await ctx.reply(`🔔 <b>Your clubs' alerts</b>\n\n${lines.join("\n\n")}\n\nAdd one from a stock page in the app, or in the group: /alert NVDA gap 1`, { parse_mode: "HTML" });
+});
+bot.hears("❓ Help", (ctx) => ctx.reply(HELP, { parse_mode: "HTML" }));
+
 bot.command(["start", "help"], async (ctx) => {
   // Deep link from a group: t.me/<bot>?start=autopilot
   if (ctx.chat?.type === "private" && ctx.match === "autopilot") return autopilotCommand(ctx, "");
@@ -72,13 +165,10 @@ bot.command(["start", "help"], async (ctx) => {
       reply_markup: { inline_keyboard: [[{ text: sell ? `Sell ${o.ticker}` : `Buy $${o.amount_usd} ${o.ticker}`, web_app: { url } }]] },
     });
   }
-  // In a private chat, lead with the app (Web App buttons only work in private chats).
-  if (ctx.chat?.type === "private") {
-    await ctx.reply(
-      "📈 <b>Stock Club</b>: trade real stocks on BNB Chain with your friends.\n\nVote together in a group, then everyone buys in their own wallet. Prices, charts and your portfolio are in the app.",
-      { parse_mode: "HTML", reply_markup: { inline_keyboard: [[{ text: "Open Stock Club", web_app: { url: `${WEB_URL}/app` } }]] } },
-    );
-  }
+  // /start in a private chat: the banner welcome + quick menu. (/help still lists every command.)
+  if (ctx.chat?.type === "private" && ctx.message?.text?.startsWith("/start")) return welcomePrivate(ctx);
+  // /start in a group (or "added to group" deep link): the group welcome.
+  if (ctx.chat?.type !== "private" && ctx.message?.text?.startsWith("/start")) return welcomeGroup(ctx.api, ctx.chat!.id);
   await ctx.reply(HELP, {
     parse_mode: "HTML",
     ...(ctx.chat?.type !== "private" ? { reply_markup: { inline_keyboard: [[{ text: "Open Stock Club", url: await appLink(ctx.api) }]] } } : {}),
@@ -170,11 +260,7 @@ bot.command("club", async (ctx) => {
   const existing = getClub(ctx.chat.id);
   if (existing) return ctx.reply(`This group already has a club: <b>${esc(existing.name)}</b>. Use /join.`, { parse_mode: "HTML" });
   const name = rest.join(" ") || (ctx.chat as { title?: string }).title || "Stock Club";
-  const club = createClub(ctx.chat.id, name.slice(0, 60), ctx.from!.id, userName(ctx));
-  await ctx.reply(
-    `🎉 <b>${esc(club.name)}</b> is open!\n${esc(userName(ctx))} is the first member.\n\nEveryone else: tap /join\n\n${rulesText(getRules(club.id))}`,
-    { parse_mode: "HTML", reply_markup: { inline_keyboard: [[{ text: "Open Stock Club", url: await appLink(ctx.api) }]] } },
-  );
+  await startClub(ctx.api, ctx.chat.id, name, ctx.from!.id, userName(ctx));
 });
 
 bot.command("join", async (ctx) => {
@@ -338,4 +424,4 @@ console.log("Stock Club bot running");
 // "Open app" menu button next to the message box in private chats.
 bot.api.setChatMenuButton({ menu_button: { type: "web_app", text: "Open app", web_app: { url: `${WEB_URL}/app` } } })
   .catch((e) => console.error("menu button", e.message));
-bot.start({ allowed_updates: ["message", "poll_answer"] });
+bot.start({ allowed_updates: ["message", "poll_answer", "my_chat_member", "callback_query"] });
