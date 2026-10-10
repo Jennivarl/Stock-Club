@@ -87,7 +87,11 @@
     const origSend = ws.send.bind(ws);
     ws.send = (d) => { sent++; return origSend(d); };
     ws.addEventListener("open", () => send("ws-open", `#${id} after ${Date.now() - t0}ms`));
-    ws.addEventListener("message", () => { recv++; });
+    // Log the type of each relay message (JSON-RPC method / ack), never the encrypted payload.
+    const kind = (d) => { try { const j = JSON.parse(d); return (j.method ?? (j.error ? "error " + JSON.stringify(j.error).slice(0, 80) : "ack")) + (j.params?.topics ? " x" + j.params.topics.length : "") + (j.params?.data?.topic ? " t=" + j.params.data.topic.slice(0, 6) : j.params?.topic ? " t=" + j.params.topic.slice(0, 6) : ""); } catch { return "?"; } };
+    const origSend2 = ws.send;
+    ws.send = (d) => { send("ws-out", `#${id} ${kind(d)}`); return origSend2(d); };
+    ws.addEventListener("message", (e) => { recv++; send("ws-in", `#${id} ${kind(e.data)}`); });
     ws.addEventListener("error", () => send("ws-error", `#${id} after ${Date.now() - t0}ms state=${ws.readyState}`));
     ws.addEventListener("close", (e) => send("ws-close", `#${id} code=${e.code} reason=${e.reason || "-"} clean=${e.wasClean} sent=${sent} recv=${recv} after ${Date.now() - t0}ms`));
     return ws;
@@ -281,7 +285,7 @@ async function buy() {
 // instead of going into this frozen page and getting lost. Coming back: reconnect and collect it.
 document.addEventListener("visibilitychange", () => {
   if (!wc?.sleep) return;
-  if (document.hidden) { wc.sleep().catch(() => {}); return; }
+  if (document.hidden) { log("sleep"); wc.sleep().catch((e) => log("sleep-error", e?.message)); return; }
   log("wake");
   wc.wake().catch((e) => log("wake-error", e?.message));
   for (const ms of [3000, 8000]) setTimeout(() => wc.catchUp().then((n) => n && log("caught-up", n)).catch(() => {}), ms);
