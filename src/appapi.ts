@@ -36,7 +36,7 @@ export function userFromInitData(initData: string): TgUser | undefined {
 // developer's home ISP does), so the app loads them from us: /api/app/logo/<id>.png, cached on disk.
 const logoUrls = new Map<string, string>();
 export function rememberLogo(url?: string): string | null {
-  const m = url?.match(/^https:\/\/onchainos\.bnbstatic\.com\/[\w/.-]+\/([0-9a-f]{32})\.png$/);
+  const m = url?.match(/^https:\/\/onchainos\.bnbstatic\.com\/[\w/.-]+\/([0-9a-fA-F]{32})\.png$/);
   if (!m) return null;
   logoUrls.set(m[1], url!);
   return `/api/app/logo/${m[1]}.png`;
@@ -141,7 +141,7 @@ const isAddr = (s: unknown): s is string => typeof s === "string" && /^0x[0-9a-f
 // Returns true if it handled the request.
 export async function handleApp(api: Api, req: http.IncomingMessage, url: URL, send: (code: number, body: unknown) => void, readJson: () => Promise<any>, res?: http.ServerResponse): Promise<boolean> {
   if (!url.pathname.startsWith("/api/app/")) return false;
-  const lm = url.pathname.match(/^\/api\/app\/logo\/([0-9a-f]{32})\.png$/);
+  const lm = url.pathname.match(/^\/api\/app\/logo\/([0-9a-fA-F]{32})\.png$/);
   if (req.method === "GET" && lm && res) {
     if (!logoUrls.size) await stocks();
     const buf = await logo(lm[1]).catch(() => undefined);
