@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Stock Club</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root {
+    --bg: #0b0e11; --card: #161a1e; --card2: #1e2329; --fg: #eaecef; --muted: #848e9c; --line: #2b3139;
+    --accent: #f0b90b; --up: #0ecb81; --down: #f6465d; --blue: #3b82f6;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.45 -apple-system, system-ui, Segoe UI, Roboto, sans-serif; }
+  body { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+  .wrap { padding: 14px 16px; max-width: 560px; margin: 0 auto; }
+  h1 { font-size: 24px; margin: 4px 0 2px; } h2 { font-size: 18px; margin: 18px 0 8px; } h3 { font-size: 16px; margin: 0 0 6px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .card { background: var(--card); border-radius: 14px; padding: 14px; margin: 10px 0; }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .between { justify-content: space-between; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 4px 9px; border-radius: 999px; background: var(--card2); color: var(--muted); }
+  .pill.open { color: var(--up); } .pill.closed { color: var(--down); } .pill.gold { color: var(--accent); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .up { color: var(--up); } .down { color: var(--down); }
+  button { font: inherit; border: 0; cursor: pointer; }
+  .btn { width: 100%; padding: 14px; border-radius: 12px; font-weight: 700; font-size: 16px; background: var(--accent); color: #111; margin-top: 8px; }
+  .btn.ghost { background: var(--card2); color: var(--fg); }
+  .btn.sell { background: var(--down); color: #fff; } .btn.buy { background: var(--up); color: #062; }
+  .btn:disabled { opacity: .5; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+  .chip { padding: 8px 14px; border-radius: 10px; background: var(--card2); color: var(--fg); font-weight: 600; }
+  .chip.on { background: var(--accent); color: #111; }
+  /* stock list */
+  .stock { display: flex; align-items: center; gap: 12px; padding: 12px 2px; border-bottom: 1px solid var(--line); }
+  .stock:last-child { border-bottom: 0; }
+  .logo { width: 38px; height: 38px; border-radius: 50%; background: var(--card2); display: grid; place-items: center; font-weight: 800; font-size: 12px; color: var(--accent); flex: none; }
+  .stock .mid { flex: 1; min-width: 0; } .stock .name { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stock .right { text-align: right; } .price { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .chg { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .gap { font-size: 11px; padding: 2px 6px; border-radius: 6px; background: var(--card2); color: var(--muted); }
+  /* tabs */
+  .tabs { position: fixed; left: 0; right: 0; bottom: 0; display: flex; background: #0f1215; border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); z-index: 5; }
+  .tab { flex: 1; padding: 9px 0 8px; text-align: center; color: var(--muted); font-size: 11px; font-weight: 600; background: none; }
+  .tab .i { font-size: 20px; display: block; line-height: 1.2; }
+  .tab.on { color: var(--accent); }
+  .view { display: none; } .view.on { display: block; }
+  /* sheet */
+  .sheet { position: fixed; inset: 0; background: var(--bg); z-index: 10; overflow-y: auto; display: none; padding-bottom: 30px; }
+  .sheet.on { display: block; }
+  .back { background: none; color: var(--accent); font-weight: 600; padding: 6px 0; }
+  .big { font-size: 34px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  svg text { fill: var(--muted); font-size: 10px; }
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); }
+  .sw { display: inline-block; width: 12px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; } td { padding: 6px 0; } td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+  /* onboarding */
+  .ob { position: fixed; inset: 0; background: radial-gradient(120% 80% at 50% 0%, #2a2410 0%, var(--bg) 60%); z-index: 20; display: none; flex-direction: column; padding: 28px 22px calc(22px + env(safe-area-inset-bottom)); }
+  .ob.on { display: flex; }
+  .ob .art { font-size: 64px; margin: 30px 0 12px; }
+  .ob h1 { font-size: 28px; line-height: 1.15; }
+  .ob p { color: #c7ccd3; font-size: 16px; }
+  .ob .grow { flex: 1; }
+  .dots { display: flex; gap: 6px; justify-content: center; margin: 10px 0; } .dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--line); } .dots i.on { background: var(--accent); width: 20px; border-radius: 4px; }
+  .check { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .check:last-child { border-bottom: 0; }
+  .tick { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; flex: none; font-size: 14px; font-weight: 800; background: var(--card2); color: var(--muted); }
+  .tick.ok { background: var(--up); color: #062; } .tick.no { background: var(--card2); color: var(--accent); }
+  input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--card2); color: var(--fg); font: inherit; font-size: 14px; }
+  .toast { position: fixed; left: 16px; right: 16px; bottom: calc(84px + env(safe-area-inset-bottom)); background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; z-index: 30; display: none; }
+  .toast.on { display: block; }
+  .skel { background: linear-gradient(90deg, var(--card) 0%, var(--card2) 50%, var(--card) 100%); background-size: 200% 100%; animation: sk 1.2s infinite; border-radius: 8px; height: 14px; }
+  @keyframes sk { to { background-position: -200% 0; } }
+  .banner { background: linear-gradient(135deg, #2a2410, #161a1e); border: 1px solid #3a3012; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- ===== Onboarding (first time) ===== -->
+<div class="ob" id="ob">
+  <div class="grow" id="obBody"></div>
+  <div class="dots" id="obDots"></div>
+  <button class="btn" id="obNext">Next</button>
+  <button class="btn ghost" id="obSkip">Skip</button>
+</div>
+
+<!-- ===== Home ===== -->
+<div class="view on" id="v-home"><div class="wrap">
+  <div class="row between">
+    <div><div class="muted" id="hello">Stock Club</div><h1>Markets</h1></div>
+    <span class="pill" id="wsPill"><span class="dot"></span><span id="wsText">…</span></span>
+  </div>
+  <div class="card banner" id="gapBanner">
+    <h3>🌙 Wall Street is closed. On-chain isn't.</h3>
+    <div class="muted">Tokenized stocks keep trading 24/7. When the market is shut, their price can drift away from the last real price. We show that <b>gap</b> on every stock, and your club can set a limit.</div>
+  </div>
+  <div class="card" id="startCard" style="display:none">
+    <div class="row between"><h3>Get started</h3><span class="pill gold" id="startCount"></span></div>
+    <div class="muted">A few steps to your first trade with friends.</div>
+    <button class="btn" id="startBtn">Continue setup</button>
+  </div>
+  <h2>Stocks <span class="muted" style="font-weight:400">· on BNB Chain</span></h2>
+  <div class="card" id="list"><div class="skel"></div><br><div class="skel"></div><br><div class="skel"></div></div>
+  <div class="muted" style="text-align:center">On-chain prices: Binance Web3 API (bStocks, Ondo). Real prices: Finnhub.</div>
+</div></div>
+
+<!-- ===== Club ===== -->
+<div class="view" id="v-club"><div class="wrap">
+  <h1>Your clubs</h1>
+  <div id="clubs"><div class="card"><div class="skel"></div></div></div>
+  <div class="card">
+    <h3>How a club trade works</h3>
+    <table>
+      <tr><td>1. Someone proposes</td><td class="muted">"Buy $10 of NVDA each"</td></tr>
+      <tr><td>2. The club votes</td><td class="muted">in the group</td></tr>
+      <tr><td>3. Rules are checked</td><td class="muted">limits, price gap</td></tr>
+      <tr><td>4. Everyone buys</td><td class="muted">in their own wallet</td></tr>
+    </table>
+    <div class="muted">Nobody holds anyone else's money. Each yes-voter buys for themselves, by tapping Buy, or automatically with Autopilot.</div>
+  </div>
+</div></div>
+
+<!-- ===== Portfolio ===== -->
+<div class="view" id="v-port"><div class="wrap">
+  <h1>Portfolio</h1>
+  <div id="port"><div class="card"><div class="skel"></div></div></div>
+</div></div>
+
+<!-- ===== Stock page ===== -->
+<div class="sheet" id="sheet"><div class="wrap">
+  <button class="back" id="back">‹ Markets</button>
+  <div class="row between"><div><h1 id="sTicker"></h1><div class="muted" id="sName"></div></div><div class="logo" id="sLogo"></div></div>
+  <div class="big" id="sPrice"></div>
+  <div class="row" style="gap:8px"><span class="chg" id="sChg"></span><span class="gap" id="sGap"></span></div>
+  <div class="card">
+    <div class="row between"><b>Last 7 days</b><div class="legend"><span><i class="sw" style="background:var(--accent)"></i>On-chain</span><span><i class="sw" style="background:var(--muted)"></i>Real stock</span></div></div>
+    <div id="chart" style="margin-top:8px"><div class="skel" style="height:160px"></div></div>
+    <div class="muted" id="chartNote">Shaded = Wall Street closed. Our own data, recorded every 15 minutes.</div>
+  </div>
+  <div class="card"><h3>Where to buy it</h3><table id="sIssuers"></table>
+    <div class="muted">Prices are per 1 real share. Stock Club picks the cheapest one that's trading.</div></div>
+  <div class="card" id="tradeCard">
+    <h3>Trade with your club</h3>
+    <div class="muted" id="tradeClub"></div>
+    <div class="chips" id="amounts"></div>
+    <button class="btn buy" id="pBuy">Propose buy</button>
+    <button class="btn sell" id="pSell">Propose sell</button>
+    <div class="muted" style="margin-top:8px">This starts a vote in your club's group. If it passes, everyone who voted yes trades in their own wallet.</div>
+  </div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<nav class="tabs">
+  <button class="tab on" data-v="home"><span class="i">📈</span>Markets</button>
+  <button class="tab" data-v="club"><span class="i">👥</span>Club</button>
+  <button class="tab" data-v="port"><span class="i">💼</span>Portfolio</button>
+</nav>
+
+<script>
+const tg = window.Telegram?.WebApp; tg?.ready(); tg?.expand();
+try { tg?.setHeaderColor?.("#0b0e11"); tg?.setBackgroundColor?.("#0b0e11"); } catch {}
+const $ = (id) => document.getElementById(id);
+const fmt = (n, d = 2) => n == null ? "–" : Number(n).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+const pct = (n) => n == null ? "" : `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`;
+const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
+
+async function api(path, body) {
+  const r = await fetch(`/api/app/${path}`, { method: body ? "POST" : "GET",
+    headers: { "Content-Type": "application/json", "X-Init-Data": tg?.initData ?? "" }, body: body ? JSON.stringify(body) : undefined });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || `Error ${r.status}`);
+  return j;
+}
+function toast(html, ms = 4000) { $("toast").innerHTML = html; $("toast").classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => $("toast").classList.remove("on"), ms); }
+function haptic(kind = "light") { try { tg?.HapticFeedback?.impactOccurred(kind); } catch {} }
+
+// ---------- tabs ----------
+document.querySelectorAll(".tab").forEach((b) => b.onclick = () => {
+  haptic();
+  document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("on", x === b));
+  document.querySelectorAll(".view").forEach((v) => v.classList.toggle("on", v.id === `v-${b.dataset.v}`));
+  if (b.dataset.v === "port") loadPortfolio();
+});
+
+// ---------- data ----------
+let me = null, market = null;
+
+async function loadMarkets() {
+  market = await api("stocks");
+  const ws = market.wallStreet;
+  $("wsPill").className = `pill ${ws.open ? "open" : "closed"}`;
+  $("wsText").textContent = ws.open ? "Wall Street open" : `Wall Street ${ws.label.replace("closed ", "closed · ").replace(/[()]/g, "")}`;
+  $("gapBanner").style.display = ws.open ? "none" : "";
+  $("list").innerHTML = market.stocks.map((s) => `
+    <div class="stock" data-t="${s.ticker}">
+      <div class="logo">${s.ticker.slice(0, 4)}</div>
+      <div class="mid"><div><b>${s.ticker}</b></div><div class="name">${s.name}</div></div>
+      <div class="right">
+        <div class="price">$${fmt(s.onchain)}</div>
+        <div class="row" style="justify-content:flex-end;gap:6px">
+          ${s.gapPct != null ? `<span class="gap" title="vs real price">gap ${pct(s.gapPct)}</span>` : ""}
+          <span class="chg ${s.changePct >= 0 ? "up" : "down"}">${pct(s.changePct)}</span>
+        </div>
+      </div>
+    </div>`).join("");
+  document.querySelectorAll(".stock").forEach((el) => el.onclick = () => openStock(el.dataset.t));
+}
+
+async function loadMe() {
+  try { me = await api("me"); } catch { me = null; }
+  $("hello").textContent = me ? `Hi ${me.user.name} 👋` : "Stock Club";
+  renderClubs();
+  renderStart();
+}
+
+function renderClubs() {
+  if (!me) { $("clubs").innerHTML = `<div class="card muted">Open this app from Telegram to see your clubs.</div>`; return; }
+  if (!me.clubs.length) {
+    $("clubs").innerHTML = `<div class="card"><h3>No club yet</h3>${clubHowTo()}</div>`; return;
+  }
+  $("clubs").innerHTML = me.clubs.map((c) => `
+    <div class="card">
+      <div class="row between"><h3>${c.name}</h3><span class="pill">${c.members} member${c.members === 1 ? "" : "s"}</span></div>
+      <table>
+        <tr><td>Max per trade</td><td>$${c.rules.max_per_trade}</td></tr>
+        <tr><td>Max per week (each)</td><td>$${c.rules.max_per_week}</td></tr>
+        <tr><td>Vote passes at</td><td>${c.rules.vote_pass_percent}% yes</td></tr>
+        <tr><td>Max gap vs real price</td><td>${c.rules.max_gap_percent}%</td></tr>
+        <tr><td>Your Autopilot</td><td>${c.autopilot ? "🤖 On" : "Off (you tap Buy)"}</td></tr>
+      </table>
+      ${c.rules.paused ? `<div class="pill closed" style="margin-top:6px">⛔ Paused</div>` : ""}
+    </div>`).join("");
+}
+const clubHowTo = () => `<ol class="muted" style="padding-left:18px;margin:6px 0">
+  <li>Make a Telegram group with your friends</li>
+  <li>Add <b>@${me?.bot ?? "the Stock Club bot"}</b> to the group</li>
+  <li>Send <code>/club start</code>, then friends send <code>/join</code></li></ol>`;
+
+async function loadPortfolio() {
+  const w = store.get("wallet") || me?.wallet;
+  if (!w) { $("port").innerHTML = `<div class="card"><h3>Add your wallet</h3><div class="muted">Paste your Binance Wallet address (BNB Smart Chain). We only read balances.</div><input id="pw" placeholder="0x…" /><button class="btn" id="pwGo">Show my portfolio</button></div>`;
+    $("pwGo").onclick = () => { const v = $("pw").value.trim(); if (/^0x[0-9a-fA-F]{40}$/.test(v)) { store.set("wallet", v); loadPortfolio(); } else toast("That doesn't look like a wallet address."); };
+    return; }
+  $("port").innerHTML = `<div class="card"><div class="skel"></div><br><div class="skel"></div></div>`;
+  try {
+    const p = await api(`portfolio?wallet=${w}`);
+    $("port").innerHTML = `
+      <div class="card">
+        <div class="muted">Total value</div><div class="big">$${fmt(p.total)}</div>
+        <div class="muted">Wallet <code>${w.slice(0, 6)}…${w.slice(-4)}</code> · BNB Smart Chain</div>
+      </div>
+      <div class="card"><h3>Stocks</h3>${p.holdings.length ? `<table>${p.holdings.map((h) => `<tr><td><b>${h.ticker}</b> <span class="muted">${h.symbol} · ${h.issuer}</span><br><span class="muted">${fmt(h.qty, 6)} shares</span></td><td>$${fmt(h.value)}</td></tr>`).join("")}</table>` : `<div class="muted">No stocks yet. Propose your first one from Markets.</div>`}</div>
+      <div class="card"><h3>Cash</h3><table><tr><td>USDT</td><td>$${fmt(p.usdt)}</td></tr><tr><td>BNB <span class="muted">(for network fees)</span></td><td>${fmt(p.bnb, 5)}</td></tr></table>
+        ${p.bnb < 0.0003 ? `<div class="muted" style="color:var(--accent)">⚠️ Add a little BNB (about $0.50) to pay network fees.</div>` : ""}</div>
+      <button class="btn ghost" id="pwChange">Use a different wallet</button>`;
+    $("pwChange").onclick = () => { store.set("wallet", ""); if (me) me.wallet = null; loadPortfolio(); };
+  } catch (e) { $("port").innerHTML = `<div class="card muted">${e.message}</div>`; }
+}
+
+// ---------- stock page ----------
+let current = null, amount = 10;
+function openStock(t) {
+  haptic();
+  const s = market.stocks.find((x) => x.ticker === t); current = s;
+  $("sTicker").textContent = s.ticker; $("sName").textContent = s.name; $("sLogo").textContent = s.ticker.slice(0, 4);
+  $("sPrice").textContent = `$${fmt(s.onchain)}`;
+  $("sChg").className = `chg ${s.changePct >= 0 ? "up" : "down"}`; $("sChg").textContent = s.changePct != null ? `${pct(s.changePct)} vs last close` : "";
+  $("sGap").textContent = s.gapPct != null ? `gap vs real $${fmt(s.real.price)}: ${pct(s.gapPct)}` : "";
+  $("sIssuers").innerHTML = s.issuers.map((i) => `<tr><td>${i.name} <span class="muted">${i.symbol}</span> ${i.open ? "" : `<span class="pill closed">paused</span>`}</td><td>$${fmt(i.price)}</td></tr>`).join("")
+    + (s.real ? `<tr><td class="muted">Real stock (last)</td><td class="muted">$${fmt(s.real.price)}</td></tr>` : "");
+  const club = me?.clubs?.[0];
+  $("tradeClub").textContent = club ? `Club: ${club.name} · max $${club.rules.max_per_trade} per trade` : "Join or start a club to trade together.";
+  const max = club?.rules.max_per_trade ?? 20;
+  const opts = [1, 5, 10, 20, 50].filter((a) => a <= max); if (!opts.includes(amount)) amount = opts.at(-1) ?? 1;
+  $("amounts").innerHTML = opts.map((a) => `<button class="chip ${a === amount ? "on" : ""}" data-a="${a}">$${a}</button>`).join("");
+  document.querySelectorAll("#amounts .chip").forEach((c) => c.onclick = () => { amount = Number(c.dataset.a); haptic(); openStock(t); });
+  $("pBuy").textContent = `Propose: buy $${amount} each`;
+  $("pBuy").disabled = $("pSell").disabled = !club || !s.tradable;
+  $("sheet").classList.add("on"); $("sheet").scrollTop = 0;
+  tg?.BackButton?.show();
+  drawChart(t);
+}
+function closeStock() { $("sheet").classList.remove("on"); tg?.BackButton?.hide(); }
+$("back").onclick = closeStock; tg?.BackButton?.onClick(closeStock);
+
+async function propose(side) {
+  const club = me?.clubs?.[0]; if (!club || !current) return;
+  const btn = side === "sell" ? $("pSell") : $("pBuy"); btn.disabled = true;
+  try {
+    const r = await api("propose", { chatId: club.chatId, ticker: current.ticker, amount, side });
+    tg?.HapticFeedback?.notificationOccurred("success");
+    toast(`✅ Vote started in <b>${r.club}</b>. Open the group and vote. If it passes, I'll send you a ${side === "sell" ? "Sell" : "Buy"} button.`, 7000);
+    store.set("didTrade", "1");
+  } catch (e) { toast(`⛔ ${e.message}`, 6000); }
+  btn.disabled = false;
+}
+$("pBuy").onclick = () => propose("buy"); $("pSell").onclick = () => propose("sell");
+
+// SVG chart: on-chain vs real price, Wall Street closed hours shaded.
+async function drawChart(t) {
+  $("chart").innerHTML = `<div class="skel" style="height:160px"></div>`;
+  const { points } = await fetch(`/api/app/chart?ticker=${t}&days=7`).then((r) => r.json());
+  if (!points?.length) { $("chart").innerHTML = `<div class="muted">No history yet.</div>`; return; }
+  const W = 340, H = 170, P = { l: 4, r: 40, t: 8, b: 18 };
+  const xs = points.map((p) => p.t), all = points.flatMap((p) => [p.onchain, p.real]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), lo = Math.min(...all), hi = Math.max(...all), pad = (hi - lo) * 0.08 || 1;
+  const X = (v) => P.l + (v - x0) / (x1 - x0 || 1) * (W - P.l - P.r);
+  const Y = (v) => P.t + (1 - (v - (lo - pad)) / ((hi + pad) - (lo - pad))) * (H - P.t - P.b);
+  // closed-market shading (New York time): weekends + outside 9:30-16:00
+  const ny = (ts) => new Date(new Date(ts).toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const closed = (ts) => { const d = ny(ts), m = d.getHours() * 60 + d.getMinutes(); return d.getDay() === 0 || d.getDay() === 6 || m < 570 || m >= 960; };
+  let shade = "", start = null;
+  for (let i = 0; i < points.length; i++) {
+    const c = closed(points[i].t);
+    if (c && start === null) start = points[i].t;
+    if ((!c || i === points.length - 1) && start !== null) { const end = points[i].t; shade += `<rect x="${X(start)}" y="${P.t}" width="${Math.max(1, X(end) - X(start))}" height="${H - P.t - P.b}" fill="#ffffff" opacity=".035"/>`; start = null; }
+  }
+  const line = (k) => points.map((p, i) => `${i ? "L" : "M"}${X(p.t).toFixed(1)},${Y(p[k]).toFixed(1)}`).join("");
+  const days = [...new Set(points.map((p) => new Date(p.t).toISOString().slice(0, 10)))];
+  const ticks = days.map((d) => { const ts = Date.parse(d + "T12:00:00Z"); return ts >= x0 && ts <= x1 ? `<text x="${X(ts)}" y="${H - 4}" text-anchor="middle">${new Date(ts).toLocaleDateString("en-US", { weekday: "short" })}</text>` : ""; }).join("");
+  // biggest gap in the window
+  const g = points.reduce((b, p) => Math.abs(p.onchain / p.real - 1) > Math.abs(b.onchain / b.real - 1) ? p : b, points[0]);
+  const gPct = (g.onchain / g.real - 1) * 100;
+  $("chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">
+    ${shade}
+    <path d="${line("real")}" fill="none" stroke="#848e9c" stroke-width="1.5" stroke-dasharray="3 3"/>
+    <path d="${line("onchain")}" fill="none" stroke="#f0b90b" stroke-width="2"/>
+    <text x="${W - P.r + 4}" y="${Y(hi) + 4}">$${fmt(hi, 0)}</text><text x="${W - P.r + 4}" y="${Y(lo)}">$${fmt(lo, 0)}</text>
+    ${ticks}
+  </svg>`;
+  $("chartNote").innerHTML = `Shaded = Wall Street closed. Biggest gap this week: <b class="${gPct >= 0 ? "up" : "down"}">${pct(gPct)}</b> (${new Date(g.t).toLocaleString("en-US", { weekday: "short", hour: "numeric" })}). Our own data, every 15 min.`;
+}
+
+// ---------- onboarding ----------
+const SLIDES = [
+  { art: "📈", h: "Real stocks, on-chain", p: "Tokenized stocks are tokens on BNB Chain that follow a real share, like Nvidia or Tesla. They're issued by <b>bStocks</b> and <b>Ondo</b>, and they sit in <b>your own wallet</b>." },
+  { art: "🌙", h: "They trade 24/7", p: "Wall Street closes at night and on weekends. On-chain stocks don't. While the market sleeps, their price can drift from the real one. Stock Club shows you that <b>gap</b> and blocks trades when it's too big." },
+  { art: "👥", h: "Decide together, buy yourself", p: "Your friends propose and vote in a Telegram group. When a vote passes, <b>everyone buys in their own wallet</b>, with one tap or automatically with Autopilot. Nobody holds anyone's money." },
+];
+let slide = 0;
+function showOnboarding(i = 0) {
+  slide = i; $("ob").classList.add("on");
+  if (slide < SLIDES.length) {
+    const s = SLIDES[slide];
+    $("obBody").innerHTML = `<div class="art">${s.art}</div><h1>${s.h}</h1><p>${s.p}</p>`;
+    $("obDots").innerHTML = SLIDES.map((_, k) => `<i class="${k === slide ? "on" : ""}"></i>`).join("") + "<i></i>";
+    $("obNext").textContent = slide === SLIDES.length - 1 ? "Get ready" : "Next"; $("obSkip").style.display = "";
+  } else renderChecklist();
+}
+async function renderChecklist() {
+  $("obDots").innerHTML = SLIDES.map(() => "<i></i>").join("") + `<i class="on"></i>`;
+  const wallet = store.get("wallet") || me?.wallet;
+  let p = null; if (wallet) { try { p = await api(`portfolio?wallet=${wallet}`); } catch {} }
+  const hasClub = !!me?.clubs?.length, did = store.get("didTrade") === "1";
+  const steps = [
+    { ok: !!wallet, t: "Binance Wallet", d: wallet ? `Connected: <code>${wallet.slice(0, 6)}…${wallet.slice(-4)}</code>` :
+      `Get the <b>Binance app</b> and open <b>Wallet</b> (keyless). Then paste your BNB Smart Chain address:<input id="obW" placeholder="0x…" style="margin-top:6px" />` },
+    { ok: p ? p.usdt >= 1 : false, t: "USDT on BNB Smart Chain", d: p ? `You have <b>$${fmt(p.usdt)}</b> USDT.` + (p.usdt >= 1 ? "" : " Buy USDT in the Binance app, then send it to your Binance Wallet on <b>BNB Smart Chain</b>.") : "This is the cash you buy stocks with. $5 is plenty to start." },
+    { ok: p ? p.bnb >= 0.0003 : false, t: "A little BNB for fees", d: p ? `You have ${fmt(p.bnb, 5)} BNB.` + (p.bnb >= 0.0003 ? " Enough for many trades." : " About $0.50 of BNB covers many trades (~$0.03–0.10 each).") : "Each trade costs a few cents in BNB." },
+    { ok: hasClub, t: "Join a club", d: hasClub ? `You're in <b>${me.clubs.map((c) => c.name).join(", ")}</b>.` : clubHowTo() },
+    { ok: did, t: "Your first trade", d: hasClub ? "Try it with $1: propose NVDA, vote yes in the group, then tap Buy in your chat with me." : "After you join a club." },
+  ];
+  const done = steps.filter((s) => s.ok).length;
+  $("obBody").innerHTML = `<h1 style="margin-top:20px">Get ready</h1><div class="muted">${done} of ${steps.length} done</div>
+    <div class="card" style="margin-top:12px">${steps.map((s) => `<div class="check"><div class="tick ${s.ok ? "ok" : "no"}">${s.ok ? "✓" : "•"}</div><div><b>${s.t}</b><div class="muted">${s.d}</div></div></div>`).join("")}</div>`;
+  const first = hasClub && !did;
+  $("obNext").textContent = !wallet ? "Check my wallet" : first ? "Try my first $1 trade" : "Go to Markets";
+  $("obSkip").style.display = ""; $("obSkip").textContent = "Later";
+  $("obNext").onclick = async () => {
+    if (!wallet) { const v = $("obW")?.value.trim(); if (/^0x[0-9a-fA-F]{40}$/.test(v)) { store.set("wallet", v); renderChecklist(); } else toast("Paste your wallet address (starts with 0x)."); return; }
+    finishOnboarding();
+    if (first) { amount = 1; openStock("NVDA"); toast("Tap <b>Propose: buy $1 each</b> to start your first vote.", 6000); }
+  };
+  renderStart(done, steps.length);
+}
+function finishOnboarding() { store.set("onboarded", "1"); $("ob").classList.remove("on"); $("obNext").onclick = obNext; $("obSkip").textContent = "Skip"; }
+const obNext = () => { haptic(); showOnboarding(slide + 1); };
+$("obNext").onclick = obNext;
+$("obSkip").onclick = () => { if (slide < SLIDES.length) showOnboarding(SLIDES.length); else finishOnboarding(); };
+function renderStart(done, total) {
+  const show = store.get("onboarded") === "1" && store.get("didTrade") !== "1";
+  $("startCard").style.display = show ? "" : "none";
+  if (done != null) $("startCount").textContent = `${done}/${total}`;
+}
+$("startBtn").onclick = () => showOnboarding(SLIDES.length);
+
+// ---------- start ----------
+(async () => {
+  if (store.get("onboarded") !== "1") showOnboarding(0);
+  await Promise.all([loadMarkets().catch((e) => { $("list").innerHTML = `<div class="muted">Couldn't load prices: ${e.message}</div>`; }), loadMe()]);
+  setInterval(() => loadMarkets().catch(() => {}), 30_000);
+})();
+</script>
+</body>
+</html>

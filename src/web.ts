@@ -6,6 +6,7 @@ import type { Api } from "grammy";
 import { getTapOrder, updateTapOrder, type TapOrder } from "./db.js";
 import { blockNumber, confirmBuy, findBuyTx, isApproved, planBuy, planSell, receiptStatus, sentCount, USDT } from "./trading.js";
 import { isTradable, quotesFor } from "./rwa.js";
+import { handleApp } from "./appapi.js";
 
 const PORT = Number(process.env.WEB_PORT ?? 8080);
 const PUBLIC = path.resolve("public");
@@ -40,6 +41,11 @@ export function startWeb(api: Api) {
       if (req.method === "GET" && url.pathname === "/api/config") {
         return send(res, 200, { walletConnectProjectId: process.env.WALLETCONNECT_PROJECT_ID ?? "" });
       }
+
+      if (req.method === "GET" && (url.pathname === "/app" || url.pathname === "/app/")) {
+        return send(res, 200, fs.readFileSync(path.join(PUBLIC, "app.html"), "utf8"), "text/html; charset=utf-8");
+      }
+      if (await handleApp(api, req, url, (code, body) => send(res, code, body), () => readJson(req))) return;
 
       const order = getTapOrder(String(url.searchParams.get("t") ?? ""));
       if (url.pathname.startsWith("/api/") && !order) return send(res, 404, { error: "This link isn't valid." });

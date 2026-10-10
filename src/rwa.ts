@@ -80,3 +80,22 @@ export function wallStreetNow(now = new Date()): { open: boolean; label: string 
   if (mins >= 570 && mins < 960) return { open: true, label: "open" };
   return { open: false, label: mins < 570 ? "closed (before open)" : "closed (after close)" };
 }
+
+// Prices for many tickers in ONE /rwa/price call (keeps us far under the 5 req/s limit). Up to ~25 tickers.
+export async function quotesForMany(tickers: string[]): Promise<Map<string, Quote[]>> {
+  const want = new Set(tickers.map((t) => t.toUpperCase()));
+  const tokens = (await listTokens()).filter((x) => want.has(x.underlyingTicker?.toUpperCase()));
+  const out = new Map<string, Quote[]>();
+  for (let i = 0; i < tokens.length; i += 50) {
+    const batch = tokens.slice(i, i + 50);
+    const r = await signedGet("/api/v1/dex/market/rwa/price", { binanceChainId: "56", tokenContractAddresses: batch.map((x) => x.tokenContractAddress).join(",") });
+    const byAddr = new Map<string, any>(r.data.map((p: any) => [p.tokenContractAddress.toLowerCase(), p]));
+    for (const tok of batch) {
+      const p = byAddr.get(tok.tokenContractAddress.toLowerCase());
+      if (!p) continue;
+      const t = tok.underlyingTicker.toUpperCase();
+      out.set(t, [...(out.get(t) ?? []), { ...tok, tokenPrice: Number(p.tokenPrice), sharePrice: Number(p.referencePrice), priceUpdatedAt: p.tokenPriceUpdatedAt }]);
+    }
+  }
+  return out;
+}

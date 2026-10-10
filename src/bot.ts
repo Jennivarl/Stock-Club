@@ -6,7 +6,7 @@ import {
 import { priceCard } from "./card.js";
 import { autopilotAvailable, isConnected, signout, startSignin, waitForSignin, walletInfo } from "./autopilot.js";
 import {
-  attachPoll, checkMarket, checkRules, closeProposal, createProposal, dueProposals, getOpenProposalForTicker, proposalIntro, recordVote, tally,
+  closeProposal, dueProposals, recordVote, startProposal, tally,
   WEB_URL,
 } from "./proposals.js";
 import { startWeb } from "./web.js";
@@ -67,6 +67,13 @@ bot.command(["start", "help"], async (ctx) => {
       parse_mode: "HTML",
       reply_markup: { inline_keyboard: [[{ text: sell ? `Sell ${o.ticker}` : `Buy $${o.amount_usd} ${o.ticker}`, web_app: { url } }]] },
     });
+  }
+  // In a private chat, lead with the app (Web App buttons only work in private chats).
+  if (ctx.chat?.type === "private") {
+    await ctx.reply(
+      "📈 <b>Stock Club</b>: trade real stocks on BNB Chain with your friends.\n\nVote together in a group, then everyone buys in their own wallet. Prices, charts and your portfolio are in the app.",
+      { parse_mode: "HTML", reply_markup: { inline_keyboard: [[{ text: "Open Stock Club", web_app: { url: `${WEB_URL}/app` } }]] } },
+    );
   }
   await ctx.reply(HELP, { parse_mode: "HTML" });
 });
@@ -234,32 +241,8 @@ bot.command("propose", async (ctx) => {
   }
   const ticker = rawTicker.toUpperCase().replace(/[^A-Z.]/g, "");
   const amount = side === "sell" ? 0 : Number(rawAmount.replace("$", ""));
-  const rules = getRules(club.id);
-
-  // Selling doesn't spend, so only the pause applies (not the trade/week limits or the allowed list).
-  const ruleNo = side === "sell"
-    ? (rules.paused ? "⛔ The club is paused (someone used /stop). Use /resume first." : null)
-    : checkRules(rules, ticker, amount, member);
-  if (ruleNo) return ctx.reply(ruleNo, { parse_mode: "HTML" });
-  if (getOpenProposalForTicker(club.id, ticker)) return ctx.reply(`There's already an open vote on ${ticker}. Vote on that one first.`);
-
-  let card;
-  try {
-    card = await priceCard(ticker);
-  } catch (e) {
-    console.error("propose price error", e);
-    return ctx.reply("⚠️ Couldn't get prices from Binance right now. Try again in a minute.");
-  }
-  const marketNo = checkMarket(card, rules, amount, side);
-  if (marketNo) return ctx.reply(marketNo, { parse_mode: "HTML" });
-
-  const p = createProposal(club.id, member.id, ticker, amount, rules.vote_hours, side);
-  await ctx.reply(proposalIntro(club, member, p, card, rules), { parse_mode: "HTML" });
-  const question = side === "sell" ? `Sell all your ${ticker}?` : `Buy $${amount} of ${ticker} each?`;
-  const poll = await ctx.api.sendPoll(ctx.chat!.id, question, [{ text: "👍 Yes, I'm in" }, { text: "👎 No" }], {
-    is_anonymous: false,
-  });
-  attachPoll(p.id, poll.poll!.id, poll.message_id);
+  const err = await startProposal(ctx.api, club, member, ticker, amount, side);
+  if (err) return ctx.reply(err, { parse_mode: "HTML" });
 });
 
 bot.on("poll_answer", async (ctx) => {
@@ -320,4 +303,7 @@ await bot.api.setMyCommands([
 ]);
 startWeb(bot.api);
 console.log("Stock Club bot running");
+// "Open app" menu button next to the message box in private chats.
+bot.api.setChatMenuButton({ menu_button: { type: "web_app", text: "Open app", web_app: { url: `${WEB_URL}/app` } } })
+  .catch((e) => console.error("menu button", e.message));
 bot.start({ allowed_updates: ["message", "poll_answer"] });

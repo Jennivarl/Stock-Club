@@ -295,3 +295,32 @@ export function proposalIntro(club: Club, proposer: Member, p: Proposal, card: C
     `Closes at ${closes.toISOString().slice(11, 16)} UTC (${rules.vote_hours} h). Only members count, /join to vote.`
   );
 }
+
+// Starts a vote in the club's group: rule + market checks, the intro message, then the poll.
+// Used by /propose and by the Mini App's Propose buttons. Returns a refusal (HTML) or null when the vote started.
+export async function startProposal(api: Api, club: Club, member: Member, ticker: string, amount: number, side: "buy" | "sell"): Promise<string | null> {
+  const rules = getRules(club.id);
+  // Selling doesn't spend, so only the pause applies (not the trade/week limits or the allowed list).
+  const ruleNo = side === "sell"
+    ? (rules.paused ? "⛔ The club is paused (someone used /stop). Use /resume first." : null)
+    : checkRules(rules, ticker, amount, member);
+  if (ruleNo) return ruleNo;
+  if (getOpenProposalForTicker(club.id, ticker)) return `There's already an open vote on ${esc(ticker)}. Vote on that one first.`;
+
+  let card: Card;
+  try {
+    card = await priceCard(ticker);
+  } catch (e) {
+    console.error("propose price error", e);
+    return "⚠️ Couldn't get prices from Binance right now. Try again in a minute.";
+  }
+  const marketNo = checkMarket(card, rules, amount, side);
+  if (marketNo) return marketNo;
+
+  const p = createProposal(club.id, member.id, ticker, amount, rules.vote_hours, side);
+  await api.sendMessage(club.telegram_chat_id, proposalIntro(club, member, p, card, rules), { parse_mode: "HTML" });
+  const question = side === "sell" ? `Sell all your ${ticker}?` : `Buy $${amount} of ${ticker} each?`;
+  const poll = await api.sendPoll(club.telegram_chat_id, question, [{ text: "👍 Yes, I'm in" }, { text: "👎 No" }], { is_anonymous: false });
+  attachPoll(p.id, poll.poll!.id, poll.message_id);
+  return null;
+}
