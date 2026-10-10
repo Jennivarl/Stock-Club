@@ -108,6 +108,14 @@
   .mover .mono { width: 34px; height: 34px; font-size: 10px; }
   .mover .p { font-size: 18px; font-weight: 800; margin-top: 10px; letter-spacing: -.02em; }
   /* progress ring */
+  .stepicons { display: flex; align-items: center; margin: 16px 0 12px; }
+  .stepicons .si { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: var(--card2); border: 1px solid var(--line2); color: var(--muted); flex: none; position: relative; }
+  .stepicons .si.ok { background: rgba(22,199,132,.12); border-color: rgba(22,199,132,.4); color: var(--up); }
+  .stepicons .si.next { background: rgba(240,185,11,.12); border-color: var(--gold); color: var(--gold); box-shadow: 0 0 0 4px rgba(240,185,11,.08); }
+  .stepicons .si.ok::after { content: ""; position: absolute; right: -3px; bottom: -3px; width: 12px; height: 12px; border-radius: 50%; background: var(--up) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2304170e' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center/8px no-repeat; border: 2px solid var(--card); }
+  .stepicons .bar { flex: 1; height: 2px; background: var(--line2); } .stepicons .bar.ok { background: rgba(22,199,132,.5); }
+  .nextstep { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border-radius: 12px; background: rgba(240,185,11,.06); border: 1px solid rgba(240,185,11,.18); }
+  .nextstep b { display: block; font-size: 14px; } .nextstep .ic { color: var(--gold); margin-top: 1px; }
   .ring { position: relative; width: 52px; height: 52px; flex: none; }
   .ring b { position: absolute; inset: 0; display: grid; place-items: center; font-size: 13px; font-weight: 800; }
   /* stock list */
@@ -260,8 +268,10 @@
 
   <div class="card" id="startCard" style="display:none">
     <div class="row" style="gap:14px"><div class="ring" id="startRing"></div>
-      <div style="flex:1"><h3 style="margin:0">Finish setting up</h3><div class="muted">A few steps to your first trade with friends.</div></div></div>
-    <button class="btn ghost" id="startBtn">Continue <svg class="ic sm"><use href="#i-next"/></svg></button>
+      <div style="flex:1"><span class="eyebrow" style="font-size:10px">Your setup</span><h3 style="margin:4px 0 0">Finish setting up</h3></div></div>
+    <div class="stepicons" id="stepIcons"></div>
+    <div class="nextstep" id="nextStep"></div>
+    <button class="btn" id="startBtn">Continue <svg class="ic sm"><use href="#i-next"/></svg></button>
   </div>
 
   <h2>Top movers</h2>
@@ -704,17 +714,20 @@ function showOnboarding(i = 0) { buildSlides(); $("ob").classList.add("on"); go(
   st.addEventListener("touchstart", (e) => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
   st.addEventListener("touchend", (e) => { if (x0 == null) return; const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) { haptic(); go(slide + (dx < 0 ? 1 : -1)); } x0 = null; }, { passive: true });
 })();
-async function renderChecklist() {
+async function getSteps() {
   const wallet = store.get("wallet") || me?.wallet;
   let p = null; if (wallet) { try { p = await api(`portfolio?wallet=${wallet}`); } catch {} }
   const hasClub = !!me?.clubs?.length, did = store.get("didTrade") === "1";
-  const steps = [
+  return { wallet, p, hasClub, did, steps: [
     { ok: !!wallet, i: "wallet", t: "Binance Wallet", d: wallet ? `Connected <code>${wallet.slice(0, 6)}…${wallet.slice(-4)}</code>` : `Get the Binance app and open <b>Wallet</b> (keyless). Paste your BNB Smart Chain address:<input id="obW" placeholder="0x…" />` },
     { ok: p ? p.usdt >= 1 : false, i: "coins", t: "USDT on BNB Smart Chain", d: p ? `You have <b class="num" style="color:var(--fg)">$${fmt(p.usdt)}</b>.` + (p.usdt >= 1 ? "" : " Buy USDT in the Binance app and send it to your Binance Wallet on BNB Smart Chain.") : "The cash you buy stocks with. $5 is plenty to start." },
     { ok: p ? p.bnb >= 0.0003 : false, i: "fuel", t: "A little BNB for fees", d: p ? `You have <span class="num">${fmt(p.bnb, 5)}</span> BNB.` + (p.bnb >= 0.0003 ? " Enough for many trades." : " About $0.50 covers many trades (a few cents each).") : "Each trade costs a few cents in BNB." },
     { ok: hasClub, i: "users", t: "Join a club", d: hasClub ? `You're in <b style="color:var(--fg)">${me.clubs.map((c) => c.name).join(", ")}</b>.` : clubHowTo() },
     { ok: did, i: "zap", t: "Your first trade", d: hasClub ? "Try it with $1: propose NVDA, vote yes in the group, then tap Buy in your chat with me." : "After you join a club." },
-  ];
+  ] };
+}
+async function renderChecklist() {
+  const { wallet, hasClub, did, steps } = await getSteps();
   const done = steps.filter((s) => s.ok).length;
   $("obCheck").innerHTML = `<span class="eyebrow">04 · Your setup</span><h1 style="margin-top:8px">Get <span class="goldtext">ready</span>.</h1>
     <div class="row" style="gap:10px;margin-top:6px"><div style="flex:1;height:6px;border-radius:4px;background:var(--card2);overflow:hidden"><div style="width:${done / steps.length * 100}%;height:100%;background:linear-gradient(90deg,#c58d07,#ffd34d)"></div></div><span class="muted num" style="font-weight:700">${done}/${steps.length}</span></div>
@@ -729,8 +742,19 @@ async function renderChecklist() {
   };
   renderStart(done, steps.length);
 }
-function finishOnboarding() { store.set("onboarded", "1"); $("ob").classList.remove("on"); renderStart(); }
+function finishOnboarding() { store.set("onboarded", "1"); $("ob").classList.remove("on"); refreshStart(); }
 $("obSkip").onclick = () => { haptic(); if (slide < SLIDES.length) go(SLIDES.length); else finishOnboarding(); };
+async function refreshStart() {
+  if (store.get("onboarded") !== "1" || store.get("didTrade") === "1") return renderStart();
+  const { steps, hasClub } = await getSteps();
+  const done = steps.filter((x) => x.ok).length, next = steps.find((x) => !x.ok);
+  $("stepIcons").innerHTML = steps.map((x, k) => `${k ? `<div class="bar ${steps[k - 1].ok && x.ok ? "ok" : ""}"></div>` : ""}<div class="si ${x.ok ? "ok" : x === next ? "next" : ""}">${icon(x.i, "sm")}</div>`).join("");
+  const plain = (h) => h.replace(/<input[^>]*>/g, "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+  $("nextStep").innerHTML = next ? `${icon(next.i)}<div><b>Next: ${next.t}</b><div class="muted">${plain(next.d)}</div></div>` : "";
+  $("startBtn").innerHTML = next?.i === "zap" && hasClub ? `${icon("zap", "sm")}Try my first $1 trade` : `Continue ${icon("next", "sm")}`;
+  $("startBtn").onclick = next?.i === "zap" && hasClub ? () => { haptic(); amount = 1; openStock("NVDA"); toast("Tap <b>Propose: buy $1 each</b> to start your first vote.", "info", 7000); } : () => showOnboarding(SLIDES.length);
+  renderStart(done, steps.length);
+}
 function renderStart(done, total) {
   $("startCard").style.display = store.get("onboarded") === "1" && store.get("didTrade") !== "1" ? "" : "none";
   if (done != null) { const r = 22, c = 2 * Math.PI * r, f = done / total;
@@ -748,6 +772,7 @@ document.querySelector("#v-home .brand").onclick = () => { haptic(); showOnboard
   if (startTicker) { store.set("onboarded", "1"); $("ob").classList.remove("on"); }
   await Promise.all([loadMarkets().catch((e) => { $("list").innerHTML = `<div class="muted" style="padding:14px 0">Couldn't load prices: ${e.message}</div>`; }), loadMe()]);
   if (me?.clubs?.length) loadMarkets().catch(() => {}); // redraw the gap card with the club's real limit
+  refreshStart();
   if (startTicker && market?.stocks.some((x) => x.ticker === startTicker)) openStock(startTicker);
   setInterval(() => loadMarkets().catch(() => {}), 30_000);
 })();
