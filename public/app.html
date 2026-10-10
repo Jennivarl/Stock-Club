@@ -71,6 +71,13 @@
   .hero .k { font-size: 12px; color: var(--muted); font-weight: 600; } .hero .v { font-size: 20px; font-weight: 800; }
   .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
   .stat { background: rgba(255,255,255,.03); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+  .gapcard { margin-top: 14px; padding: 14px; border-radius: 16px; background: rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.07); cursor: pointer; }
+  .gapcard .k { font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .gapbadge { font-size: 17px; font-weight: 800; padding: 7px 11px; border-radius: 12px; }
+  .gapbadge.up { background: rgba(22,199,132,.14); color: var(--up); } .gapbadge.down { background: rgba(240,77,99,.14); color: var(--down); }
+  .meter { position: relative; height: 8px; border-radius: 6px; background: #1b2028; margin: 14px 0 8px; overflow: visible; }
+  .meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; background: linear-gradient(90deg, #16c784, #f0b90b 70%, #f04d63); }
+  .meter span { position: absolute; top: -4px; bottom: -4px; width: 2px; background: #eef0f3; border-radius: 2px; }
   /* ticker tape */
   .tape { position: relative; overflow: hidden; margin: 12px -16px 0; padding: 9px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: rgba(255,255,255,.015); -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
   .tape .run { display: inline-flex; gap: 22px; white-space: nowrap; animation: tape 38s linear infinite; padding-left: 16px; }
@@ -221,10 +228,19 @@
       <div class="muted" id="heroText">Tokenized stocks trade 24/7. While the market sleeps, their price can drift from the last real price. That's the <b style="color:var(--fg)">gap</b>.</div></div></div>
     <div class="muted" style="margin-top:14px;font-weight:700" id="countLabel">Wall Street opens in</div>
     <div class="count" id="count"><div><b id="cD">–</b><small>DAYS</small></div><div><b id="cH">–</b><small>HRS</small></div><div><b id="cM">–</b><small>MIN</small></div><div><b id="cS">–</b><small>SEC</small></div></div>
-    <div class="stats">
-      <div class="stat"><div class="k">Biggest gap now</div><div class="v num" id="stGap">–</div><div class="muted" id="stGapT" style="font-size:11px">&nbsp;</div></div>
-      <div class="stat"><div class="k">Trading 24/7</div><div class="v num" id="stOpen">–</div><div class="muted" style="font-size:11px">of 15 stocks</div></div>
-      <div class="stat"><div class="k">Issuers</div><div class="v">2</div><div class="muted" style="font-size:11px">bStocks · Ondo</div></div>
+    <div class="gapcard" id="gapCard">
+      <div class="row between"><span class="k">Biggest gap right now</span><svg class="ic sm" style="color:var(--muted)"><use href="#i-next"/></svg></div>
+      <div class="row" style="gap:12px;margin-top:10px">
+        <div id="gcLogo"></div>
+        <div style="flex:1;min-width:0"><b id="gcT" style="font-size:16px">–</b><div class="muted num" id="gcLine">&nbsp;</div></div>
+        <span class="gapbadge num" id="gcPct">–</span>
+      </div>
+      <div class="meter"><i id="gcBar"></i><span id="gcLim"></span></div>
+      <div class="muted" id="gcNote" style="font-size:11.5px">&nbsp;</div>
+    </div>
+    <div class="row" style="gap:16px;margin-top:12px;flex-wrap:wrap">
+      <span class="muted" style="font-weight:700"><span class="live" style="display:inline-block;color:var(--up);margin-right:6px"></span><b class="num" id="stOpen" style="color:var(--fg)">–</b> of 15 trading on-chain now</span>
+      <span class="muted" style="font-weight:700">Avg gap <b class="num" id="stAvg" style="color:var(--fg)">–</b></span>
     </div>
   </div>
 
@@ -380,7 +396,17 @@ async function loadMarkets() {
   $("heroText").innerHTML = ws.open ? "On-chain prices follow the real ones closely while the market is open. Watch the <b style='color:var(--fg)'>gap</b> after hours." : "Tokenized stocks trade 24/7. While the market sleeps, their price can drift from the last real price. That's the <b style='color:var(--fg)'>gap</b>.";
   const withGap = market.stocks.filter((s) => s.gapPct != null);
   const big = withGap.sort((a, b) => Math.abs(b.gapPct) - Math.abs(a.gapPct))[0];
-  if (big) { $("stGap").textContent = pct(big.gapPct); $("stGap").className = `v num ${big.gapPct >= 0 ? "up" : "down"}`; $("stGapT").textContent = big.ticker; }
+  if (big) {
+    const lim = me?.clubs?.[0]?.rules?.max_gap_percent ?? 2, a = Math.abs(big.gapPct), scale = Math.max(lim * 1.5, a * 1.1);
+    $("gcLogo").innerHTML = mono(big.ticker); $("gcT").textContent = `${big.ticker} · ${big.name}`;
+    $("gcLine").innerHTML = `On-chain $${fmt(big.onchain)} <span style="opacity:.6">vs real</span> $${fmt(big.real?.price)}`;
+    $("gcPct").textContent = pct(big.gapPct); $("gcPct").className = `gapbadge num ${big.gapPct >= 0 ? "up" : "down"}`;
+    $("gcBar").style.width = `${Math.min(100, a / scale * 100)}%`; $("gcLim").style.left = `${Math.min(99, lim / scale * 100)}%`;
+    $("gcNote").innerHTML = a > lim ? `Over your club's ${lim}% limit: Stock Club would block a trade now.` : `Under your club's ${lim}% limit (white line). Trades are allowed.`;
+    $("gapCard").onclick = () => openStock(big.ticker);
+  }
+  const gaps = market.stocks.filter((s) => s.gapPct != null);
+  $("stAvg").textContent = gaps.length ? `±${(gaps.reduce((t, s) => t + Math.abs(s.gapPct), 0) / gaps.length).toFixed(2)}%` : "–";
   $("stOpen").textContent = market.stocks.filter((s) => s.tradable).length;
   $("tape").innerHTML = [...market.stocks, ...market.stocks].map((s) => `<span><b>${s.ticker}</b>$${fmt(s.onchain)} <i class="${(s.changePct ?? 0) >= 0 ? "up" : "down"}" style="font-style:normal">${pct(s.changePct)}</i></span>`).join("");
   renderList(); renderMovers();
@@ -708,6 +734,7 @@ document.querySelector("#v-home .brand").onclick = () => { haptic(); showOnboard
   const startTicker = String(tg?.initDataUnsafe?.start_param ?? "").toUpperCase();
   if (startTicker) { store.set("onboarded", "1"); $("ob").classList.remove("on"); }
   await Promise.all([loadMarkets().catch((e) => { $("list").innerHTML = `<div class="muted" style="padding:14px 0">Couldn't load prices: ${e.message}</div>`; }), loadMe()]);
+  if (me?.clubs?.length) loadMarkets().catch(() => {}); // redraw the gap card with the club's real limit
   if (startTicker && market?.stocks.some((x) => x.ticker === startTicker)) openStock(startTicker);
   setInterval(() => loadMarkets().catch(() => {}), 30_000);
 })();
