@@ -277,7 +277,22 @@ async function buy() {
 }
 
 // Wallet connection: Reown AppKit (WalletConnect's official modal), bundled in /wallet.js.
+// Always start with a fresh wallet connection. A saved one can look connected here while Binance
+// Wallet has already dropped it (Oct 10: the sale request went nowhere, then "QR error").
+// WalletConnect keeps sessions in IndexedDB, AppKit in localStorage.
+async function forgetOldConnection() {
+  try { for (const k of Object.keys(localStorage)) if (/^(wc@2|@appkit|@w3m|W3M|WCM)/.test(k)) localStorage.removeItem(k); } catch {}
+  await new Promise((done) => {
+    try {
+      const r = indexedDB.deleteDatabase("WALLET_CONNECT_V2_INDEXED_DB");
+      r.onsuccess = r.onerror = r.onblocked = () => done();
+      setTimeout(done, 2000);
+    } catch { done(); }
+  });
+}
+
 async function startWallet() {
+  await forgetOldConnection();
   const { walletConnectProjectId } = await api("config");
   wc = window.SCWallet.initWallet(walletConnectProjectId, (address) => {
     log("account", address ?? "none");
