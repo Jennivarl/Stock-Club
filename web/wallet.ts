@@ -9,7 +9,7 @@ const BINANCE_WALLET_ID = "8a0ee50d1f22f6651afcae7eb4253e52a3310b90af5daef78a8c4
 
 type Eip1193 = { request(args: { method: string; params?: unknown[] }): Promise<any> };
 
-export function initWallet(projectId: string, onAccount: (address: string | undefined) => void) {
+export function initWallet(projectId: string, onAccount: (address: string | undefined) => void, onEvent?: (name: string) => void) {
   const modal = createAppKit({
     adapters: [new EthersAdapter()],
     networks: [bsc],
@@ -20,6 +20,8 @@ export function initWallet(projectId: string, onAccount: (address: string | unde
     features: { email: false, socials: false, swaps: false, onramp: false, analytics: false },
   });
   modal.subscribeAccount((s) => onAccount(s.isConnected ? s.address : undefined));
+  // AppKit's own events (CONNECT_SUCCESS, CONNECT_ERROR, ...), for our debug log.
+  modal.subscribeEvents((e: any) => onEvent?.(`${e?.data?.event ?? "?"} ${JSON.stringify(e?.data?.properties ?? {}).slice(0, 150)}`));
 
   return {
     open: () => modal.open(),
