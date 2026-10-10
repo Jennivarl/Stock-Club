@@ -17,12 +17,14 @@
   "dependencies": {
     "@walletconnect/sign-client": "2.23.7",
     "dotenv": "^18.0.5",
-    "grammy": "^1.46.0"
+    "grammy": "^1.46.0",
+    "ws": "^8.22.0"
   },
   "devDependencies": {
     "@reown/appkit": "^1.8.24",
     "@reown/appkit-adapter-ethers": "^1.8.24",
     "@types/node": "^26.6.4",
+    "@types/ws": "^8.18.2",
     "esbuild": "^0.28.2",
     "ethers": "^6.17.0",
     "tsx": "^4.23.15",

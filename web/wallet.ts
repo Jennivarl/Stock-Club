@@ -23,8 +23,19 @@ export function initWallet(projectId: string, onAccount: (address: string | unde
   // AppKit's own events (CONNECT_SUCCESS, CONNECT_ERROR, ...), for our debug log.
   modal.subscribeEvents((e: any) => onEvent?.(`${e?.data?.event ?? "?"} ${JSON.stringify(e?.data?.properties ?? {}).slice(0, 150)}`));
 
+  // Remember the last request, to build the same link WalletConnect opens for it:
+  // bnc://app.binance.com/cedefi/wc?requestId=<id>&sessionTopic=<topic> (Binance's native link).
+  // NOT https://app.binance.com/cedefi: that's Binance's "Link Mode" link and shows "QR code expired" (Oct 10).
+  let lastRequest: { id: number; topic: string } | undefined;
+  modal.getUniversalProvider().then((up: any) => {
+    up?.client?.events?.on("session_request_sent", (e: { id: number; topic: string }) => { lastRequest = { id: e.id, topic: e.topic }; });
+  }).catch(() => {});
+
   return {
     open: () => modal.open(),
+    requestLink: () => lastRequest
+      ? `bnc://app.binance.com/cedefi/wc?requestId=${lastRequest.id}&sessionTopic=${lastRequest.topic}`
+      : "bnc://app.binance.com/cedefi/",
     disconnect: () => modal.disconnect(),
     async send(tx: Record<string, string>): Promise<string> {
       const provider = modal.getWalletProvider() as Eip1193 | undefined;
