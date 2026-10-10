@@ -176,6 +176,10 @@ export async function closeProposal(api: Api, p: Proposal, chatId: number): Prom
 }
 
 export const WEB_URL = process.env.WEB_URL ?? "https://164-90-183-99.sslip.io";
+// The bot's registered Mini App (BotFather /newapp, short name "app"). A t.me link works in groups too,
+// where web_app buttons don't. ?startapp=NVDA opens the app on that stock.
+export const appLink = async (api: Api, startapp?: string) =>
+  `https://t.me/${(await api.getMe()).username}/app${startapp ? `?startapp=${encodeURIComponent(startapp)}` : ""}`;
 
 async function runBuys(api: Api, chatId: number, p: Proposal, yes: Member[], best: Quote, rules: Rules) {
   const lines: string[] = [];
@@ -318,7 +322,10 @@ export async function startProposal(api: Api, club: Club, member: Member, ticker
   if (marketNo) return marketNo;
 
   const p = createProposal(club.id, member.id, ticker, amount, rules.vote_hours, side);
-  await api.sendMessage(club.telegram_chat_id, proposalIntro(club, member, p, card, rules), { parse_mode: "HTML" });
+  await api.sendMessage(club.telegram_chat_id, proposalIntro(club, member, p, card, rules), {
+    parse_mode: "HTML",
+    reply_markup: { inline_keyboard: [[{ text: `View ${ticker} chart`, url: await appLink(api, ticker) }]] },
+  });
   const question = side === "sell" ? `Sell all your ${ticker}?` : `Buy $${amount} of ${ticker} each?`;
   const poll = await api.sendPoll(club.telegram_chat_id, question, [{ text: "👍 Yes, I'm in" }, { text: "👎 No" }], { is_anonymous: false });
   attachPoll(p.id, poll.poll!.id, poll.message_id);

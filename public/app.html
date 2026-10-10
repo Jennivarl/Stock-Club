@@ -558,7 +558,11 @@ document.querySelector("#v-home .brand").onclick = () => { haptic(); showOnboard
 (async () => {
   if (store.get("onboarded") !== "1") showOnboarding(0);
   loadSparks();
+  // Opened from a group's "View NVDA chart" button (t.me/<bot>/app?startapp=NVDA): go straight to that stock.
+  const startTicker = String(tg?.initDataUnsafe?.start_param ?? "").toUpperCase();
+  if (startTicker) { store.set("onboarded", "1"); $("ob").classList.remove("on"); }
   await Promise.all([loadMarkets().catch((e) => { $("list").innerHTML = `<div class="muted" style="padding:14px 0">Couldn't load prices: ${e.message}</div>`; }), loadMe()]);
+  if (startTicker && market?.stocks.some((x) => x.ticker === startTicker)) openStock(startTicker);
   setInterval(() => loadMarkets().catch(() => {}), 30_000);
 })();
 </script>

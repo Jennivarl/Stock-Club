@@ -6,7 +6,7 @@ import {
 import { priceCard } from "./card.js";
 import { autopilotAvailable, isConnected, signout, startSignin, waitForSignin, walletInfo } from "./autopilot.js";
 import {
-  closeProposal, dueProposals, recordVote, startProposal, tally,
+  appLink, closeProposal, dueProposals, recordVote, startProposal, tally,
   WEB_URL,
 } from "./proposals.js";
 import { startWeb } from "./web.js";
@@ -75,7 +75,10 @@ bot.command(["start", "help"], async (ctx) => {
       { parse_mode: "HTML", reply_markup: { inline_keyboard: [[{ text: "Open Stock Club", web_app: { url: `${WEB_URL}/app` } }]] } },
     );
   }
-  await ctx.reply(HELP, { parse_mode: "HTML" });
+  await ctx.reply(HELP, {
+    parse_mode: "HTML",
+    ...(ctx.chat?.type !== "private" ? { reply_markup: { inline_keyboard: [[{ text: "Open Stock Club", url: await appLink(ctx.api) }]] } } : {}),
+  });
 });
 
 // ---- Autopilot (Binance Agentic Wallet) ----
@@ -166,7 +169,7 @@ bot.command("club", async (ctx) => {
   const club = createClub(ctx.chat.id, name.slice(0, 60), ctx.from!.id, userName(ctx));
   await ctx.reply(
     `🎉 <b>${esc(club.name)}</b> is open!\n${esc(userName(ctx))} is the first member.\n\nEveryone else: tap /join\n\n${rulesText(getRules(club.id))}`,
-    { parse_mode: "HTML" },
+    { parse_mode: "HTML", reply_markup: { inline_keyboard: [[{ text: "Open Stock Club", url: await appLink(ctx.api) }]] } },
   );
 });
 
