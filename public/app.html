@@ -85,13 +85,14 @@
   .tape b { color: var(--fg); margin-right: 6px; }
   @keyframes tape { to { transform: translateX(-50%); } }
   /* countdown */
-  .count { display: flex; gap: 6px; margin-top: 12px; }
-  .count div { position: relative; overflow: hidden; flex: 1; text-align: center; padding: 10px 0 8px; border-radius: 14px;
-    background: linear-gradient(180deg, #ffd84f 0%, #f0b90b 55%, #d99e05 100%);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.55), inset 0 -2px 0 rgba(0,0,0,.12), 0 10px 22px -12px rgba(240,185,11,.75); }
-  .count div::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: rgba(0,0,0,.12); }
-  .count b { display: block; font-size: 26px; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; color: #15120a; }
-  .count small { font-size: 10px; font-weight: 800; letter-spacing: .12em; color: rgba(21,18,10,.62); }
+  .countrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; padding: 10px 12px; border-radius: 14px; background: rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.06); }
+  .countrow .lbl { font-size: 12px; font-weight: 700; color: var(--muted); line-height: 1.25; }
+  .count { display: flex; align-items: center; gap: 4px; }
+  .count div { min-width: 40px; padding: 6px 0 5px; text-align: center; border-radius: 10px;
+    background: linear-gradient(180deg, #ffd84f, #e9ae05); box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 6px 14px -8px rgba(240,185,11,.8); }
+  .count b { display: block; font-size: 17px; line-height: 1.05; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: #15120a; }
+  .count small { display: block; font-size: 8.5px; font-weight: 800; letter-spacing: .1em; color: rgba(21,18,10,.6); }
+  .count i { font-style: normal; font-weight: 800; color: rgba(240,185,11,.55); font-size: 15px; margin-top: -10px; }
   /* movers carousel */
   .movers { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; margin: 0 -16px; padding: 2px 16px 6px; scrollbar-width: none; }
   .movers::-webkit-scrollbar { display: none; }
@@ -226,8 +227,10 @@
     <div class="row" style="gap:12px"><svg class="ic lg gold"><use href="#i-moon" id="heroIcon"/></svg>
       <div><h3 id="heroTitle">Wall Street is closed. On-chain isn't.</h3>
       <div class="muted" id="heroText">Tokenized stocks trade 24/7. While the market sleeps, their price can drift from the last real price. That's the <b style="color:var(--fg)">gap</b>.</div></div></div>
-    <div class="muted" style="margin-top:14px;font-weight:700" id="countLabel">Wall Street opens in</div>
-    <div class="count" id="count"><div><b id="cD">–</b><small>DAYS</small></div><div><b id="cH">–</b><small>HRS</small></div><div><b id="cM">–</b><small>MIN</small></div><div><b id="cS">–</b><small>SEC</small></div></div>
+    <div class="countrow">
+      <div class="lbl" id="countLabel">Wall Street<br>opens in</div>
+      <div class="count" id="count"><div><b id="cD">–</b><small>DAY</small></div><i>:</i><div><b id="cH">–</b><small>HR</small></div><i>:</i><div><b id="cM">–</b><small>MIN</small></div><i>:</i><div><b id="cS">–</b><small>SEC</small></div></div>
+    </div>
     <div class="gapcard" id="gapCard">
       <div class="row between"><span class="k">Biggest gap right now</span><svg class="ic sm" style="color:var(--muted)"><use href="#i-next"/></svg></div>
       <div class="row" style="gap:12px;margin-top:10px">
@@ -433,7 +436,7 @@ function nextBell() {
 setInterval(() => {
   if (!market) return;
   const { ms, open } = nextBell(), z = (n) => String(n).padStart(2, "0");
-  $("countLabel").textContent = open ? "Wall Street closes in" : "Wall Street opens in";
+  $("countLabel").innerHTML = open ? "Wall Street<br>closes in" : "Wall Street<br>opens in";
   $("cD").textContent = Math.floor(ms / 864e5); $("cH").textContent = z(Math.floor(ms / 36e5) % 24); $("cM").textContent = z(Math.floor(ms / 6e4) % 60); $("cS").textContent = z(Math.floor(ms / 1e3) % 60);
 }, 1000);
 function renderList() {
