@@ -7,6 +7,7 @@ import type http from "node:http";
 import type { Api } from "grammy";
 import { clubsOf, db, getClub, getMember, getMembers, getRules } from "./db.js";
 import { startProposal } from "./proposals.js";
+import { candles, impact, news, stockDetail, universe } from "./tools.js";
 import { isTradable, ISSUER_NAME, quotesForMany, wallStreetNow } from "./rwa.js";
 import { realQuote } from "./stocks.js";
 import { balances, tokenBalance } from "./trading.js";
@@ -33,7 +34,7 @@ export function userFromInitData(initData: string): TgUser | undefined {
 // Token logos come from Binance (onchainos.bnbstatic.com). Some networks block Binance domains (the
 // developer's home ISP does), so the app loads them from us: /api/app/logo/<id>.png, cached on disk.
 const logoUrls = new Map<string, string>();
-function rememberLogo(url?: string): string | null {
+export function rememberLogo(url?: string): string | null {
   const m = url?.match(/^https:\/\/onchainos\.bnbstatic\.com\/[\w/.-]+\/([0-9a-f]{32})\.png$/);
   if (!m) return null;
   logoUrls.set(m[1], url!);
@@ -154,6 +155,18 @@ export async function handleApp(api: Api, req: http.IncomingMessage, url: URL, s
     send(200, chart(t, Math.min(14, Number(url.searchParams.get("days") ?? 7)))); return true;
   }
 
+  const tk = String(url.searchParams.get("ticker") ?? "").toUpperCase().replace(/[^A-Z.]/g, "");
+  if (req.method === "GET" && url.pathname === "/api/app/candles") {
+    const bar = (["1h", "4h", "1d"] as const).find((b) => b === url.searchParams.get("bar")) ?? "1d";
+    send(200, await candles(tk, bar).catch((e) => { console.error("candles", e.message); return []; })); return true;
+  }
+  if (req.method === "GET" && url.pathname === "/api/app/news") { send(200, await news(tk).catch(() => ({ news: [], earnings: null }))); return true; }
+  if (req.method === "GET" && url.pathname === "/api/app/impact") { send(200, await impact(tk).catch(() => [])); return true; }
+  if (req.method === "GET" && url.pathname === "/api/app/universe") { send(200, await universe(rememberLogo)); return true; }
+  if (req.method === "GET" && url.pathname === "/api/app/stock") {
+    const d = await stockDetail(tk, rememberLogo);
+    send(d ? 200 : 404, d ?? { error: "Not listed." }); return true;
+  }
   if (req.method === "GET" && url.pathname === "/api/app/sparks") {
     // Last ~48 h of on-chain prices per stock, for the small charts in the list.
     const out: Record<string, number[]> = {};

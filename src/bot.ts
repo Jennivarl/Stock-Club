@@ -10,6 +10,7 @@ import {
   WEB_URL,
 } from "./proposals.js";
 import { startWeb } from "./web.js";
+import { activeAlerts, addAlert, checkAlerts, describe, removeAlert } from "./alerts.js";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) throw new Error("Missing TELEGRAM_BOT_TOKEN in .env");
@@ -30,6 +31,9 @@ const HELP = [
   "/price NVDA - live price card",
   "/propose NVDA 20 - vote on everyone buying $20 of NVDA",
   "/propose sell NVDA - vote on selling: everyone who votes yes sells all their NVDA",
+  "/alert NVDA gap 1 - tell the group when NVDA's on-chain price is 1% off the real one",
+  "/alert TSLA above 400 (or below 350) - price alert",
+  "/alerts - this club's alerts · /alert off 3 - remove one",
   "/stop - any member can pause the club",
   "/resume - un-pause (club creator)",
   "",
@@ -261,6 +265,28 @@ bot.on("poll_answer", async (ctx) => {
   }
 });
 
+bot.command("alert", async (ctx) => {
+  const club = isGroup(ctx) ? getClub(ctx.chat!.id) : undefined;
+  if (!club) return ctx.reply("Run /alert inside your club's group.");
+  if (!getMember(club.id, ctx.from!.id)) return ctx.reply("Only members can set alerts. Tap /join first.");
+  const [a, b, c] = ctx.match.trim().split(/\s+/).filter(Boolean);
+  if (a?.toLowerCase() === "off") {
+    return ctx.reply(removeAlert(club.id, Number(b)) ? `Removed alert ${Number(b)}.` : "No active alert with that number. See /alerts.");
+  }
+  if (!a || !b || !c) return ctx.reply("Use: /alert NVDA gap 1  ·  /alert TSLA above 400  ·  /alert TSLA below 350");
+  const r = await addAlert(club.id, ctx.from!.id, userName(ctx), a.toUpperCase().replace(/[^A-Z.]/g, ""), b.toLowerCase(), Number(c.replace(/[$%]/g, "")));
+  if (typeof r === "string") return ctx.reply(r);
+  await ctx.reply(`🔔 Alert ${r.id} set: <b>${esc(describe(r))}</b>. I check every 2 minutes and post here once when it happens.`, { parse_mode: "HTML" });
+});
+
+bot.command("alerts", async (ctx) => {
+  const club = isGroup(ctx) ? getClub(ctx.chat!.id) : undefined;
+  if (!club) return ctx.reply("Run /alerts inside your club's group.");
+  const list = activeAlerts(club.id);
+  const lines = list.map((a) => `${a.id}. ${esc(describe(a))} <i>(by ${esc(a.creator_name ?? "?")})</i>`).join("\n");
+  await ctx.reply(list.length ? `🔔 <b>Active alerts</b>\n${lines}\n\nRemove one: /alert off 3` : "No active alerts. Add one: /alert NVDA gap 1", { parse_mode: "HTML" });
+});
+
 bot.command("stop", async (ctx) => {
   const club = isGroup(ctx) ? getClub(ctx.chat!.id) : undefined;
   if (!club) return ctx.reply("No club here yet.");
@@ -289,6 +315,7 @@ async function sweep() {
   }
 }
 setInterval(sweep, 20_000);
+setInterval(() => checkAlerts(bot.api).catch((e) => console.error("alerts", e.message)), 120_000);
 
 bot.catch((err) => console.error("bot error", err.error));
 
@@ -299,6 +326,8 @@ await bot.api.setMyCommands([
   { command: "rules", description: "show or change club rules" },
   { command: "price", description: "live price card: /price NVDA" },
   { command: "propose", description: "start a vote: /propose NVDA 20" },
+  { command: "alert", description: "alert the group: /alert NVDA gap 1" },
+  { command: "alerts", description: "this club's active alerts" },
   { command: "stop", description: "pause the club (any member)" },
   { command: "resume", description: "un-pause the club (creator)" },
   { command: "autopilot", description: "let me buy for you (private chat)" },
