@@ -8,7 +8,7 @@ const API_KEY = process.env.BINANCE_API_KEY ?? "";
 const API_SECRET = process.env.BINANCE_API_SECRET ?? "";
 
 // Signed GET. Signature = Base64(HMAC-SHA256(timestamp + method + pathWithQuery + body, secret)).
-// On a rate limit (HTTP 429, code 42900) it waits for Retry-After and tries again, up to 3 times.
+// On a rate limit (HTTP 429, code 42900) or a gateway error (502-504) it waits and tries again, up to 3 times.
 export async function signedGet<T = any>(path: string, params: Record<string, string> = {}, attempt = 1): Promise<T> {
   if (!API_KEY || !API_SECRET) throw new Error("Missing BINANCE_API_KEY / BINANCE_API_SECRET in .env");
 
@@ -23,6 +23,11 @@ export async function signedGet<T = any>(path: string, params: Record<string, st
   if (res.status === 429 && attempt < 3) {
     const waitS = Math.min(Number(res.headers.get("retry-after")) || 1, 10);
     await new Promise((r) => setTimeout(r, waitS * 1000));
+    return signedGet<T>(path, params, attempt + 1);
+  }
+  // Binance's gateway sometimes answers 502/503/504 for a moment (seen Oct 10). Try again after a short pause.
+  if (res.status >= 502 && res.status <= 504 && attempt < 3) {
+    await new Promise((r) => setTimeout(r, 1500 * attempt));
     return signedGet<T>(path, params, attempt + 1);
   }
   const text = await res.text();
