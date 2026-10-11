@@ -639,16 +639,21 @@ function renderList() {
 async function loadSparks() { try { sparks = await fetch("/api/app/sparks").then((r) => r.json()); if (market) { renderList(); renderMovers(); } } catch {} }
 
 // ---------- me / club ----------
+const wlog = (event, detail = "") => fetch("/api/app/clientlog", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ event, detail: String(detail) }) }).catch(() => {});
 // Website login: Telegram's official login popup (Telegram.Login.auth from telegram-widget.js), our own button.
+// Full-page Telegram login (no popup): go to oauth.telegram.org, confirm, and Telegram sends you back to
+// https://stockclubhq.xyz/#tgAuthResult=<signed login>, which the start-up code reads.
+// (The popup version failed in Chrome: a popup opened after an await isn't linked to the page, and its
+// fallback needs third-party cookies. Oct 11.)
 let appInfo = null;
-async function loginTG() {
+fetch("/api/app/info").then((r) => r.json()).then((j) => { appInfo = j; }).catch(() => {});
+function loginTG() {
   haptic();
-  appInfo ??= await fetch("/api/app/info").then((r) => r.json()).catch(() => ({}));
-  if (!window.Telegram?.Login?.auth || !appInfo.botId) { toast("Telegram login didn't load. Refresh the page and try again.", "bad"); return; }
-  window.Telegram.Login.auth({ bot_id: appInfo.botId, request_access: "write" }, (user) => {
-    if (!user) return toast("Login cancelled.", "info");
-    store.set("tglogin", JSON.stringify(user)); store.set("resumeSetup", "1"); location.reload();
-  });
+  if (!appInfo?.botId) { toast("One moment, still loading. Try again in a second.", "info"); return; }
+  wlog("login-click", "redirect");
+  if (store.get("onboarded") !== "1") store.set("resumeSetup", "1");
+  const back = location.origin + "/";
+  location.href = `https://oauth.telegram.org/auth?bot_id=${appInfo.botId}&origin=${encodeURIComponent(location.origin)}&request_access=write&return_to=${encodeURIComponent(back)}`;
 }
 const loginBtn = (cls = "") => `<button class="btn ${cls}" data-login>${icon("users", "sm")}Log in with Telegram</button>`;
 document.addEventListener("click", (e) => { if (e.target.closest?.("[data-login]")) { e.preventDefault(); loginTG(); } });
@@ -1291,6 +1296,7 @@ document.querySelector("#v-home .brand").onclick = () => { haptic(); showOnboard
 // ---------- start ----------
 (async () => {
   // Telegram's login can come back as a full-page redirect: https://stockclubhq.xyz/#tgAuthResult=<base64 JSON>.
+  if (!inTG) wlog("page-load", `hash=${location.hash ? location.hash.slice(0, 20) : "none"} stored=${!!store.get("tglogin")} storageOK=${(() => { try { localStorage.setItem("x", "1"); return localStorage.getItem("x") === "1"; } catch { return false; } })()}`);
   const tgr = location.hash.match(/tgAuthResult=([A-Za-z0-9_\-+/=]+)/);
   if (tgr) {
     try {
