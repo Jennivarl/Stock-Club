@@ -1319,7 +1319,14 @@ document.querySelector("#v-home .brand").onclick = () => { haptic(); showOnboard
   // Links into the app: ?startapp=NVDA (a stock), ?startapp=intro or ?intro=1 (the intro), ?tab=port (Portfolio)
   const q = new URLSearchParams(location.search), sp = String(tg?.initDataUnsafe?.start_param ?? "");
   const wantIntro = sp === "intro" || q.get("intro") === "1";
-  const startTicker = !wantIntro ? sp.toUpperCase() : "";
+  // Group buttons open the app on a screen: ?startapp=propose (Markets) / club / port
+  const screens = { propose: "home", club: "club", port: "port" };
+  const startTicker = !wantIntro && !screens[sp] ? sp.toUpperCase() : "";
+  if (screens[sp]) {
+    store.set("onboarded", "1"); $("ob").classList.remove("on");
+    setTimeout(() => document.querySelector(`.tab[data-v="${screens[sp]}"]`)?.click(), 0);
+    if (sp === "propose") setTimeout(() => toast("Pick a stock, then use <b>Trade</b>: propose a buy or sell, or set an alert.", "info", 7000), 600);
+  }
   if (startTicker) { store.set("onboarded", "1"); $("ob").classList.remove("on"); }
   if (wantIntro) showOnboarding(0);
   if (q.get("tab")) document.querySelector(`.tab[data-v="${q.get("tab")}"]`)?.click();

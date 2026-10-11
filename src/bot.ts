@@ -92,14 +92,27 @@ async function welcomePrivate(ctx: Context) {
     },
   });
 }
+// Buttons for a group that is already a club: things to DO (the app opens on the right screen).
+async function clubKeyboard(api: Api) {
+  return [
+    [{ text: "✅ Join the club", callback_data: "join" }],
+    [{ text: "🗳 Propose a buy", url: await appLink(api, "propose") }, { text: "💸 Propose a sell", url: await appLink(api, "propose") }],
+    [{ text: "🔔 Set an alert", url: await appLink(api, "propose") }, { text: "⚙️ Club & rules", url: await appLink(api, "club") }],
+    [{ text: "📈 Open Stock Club", url: await appLink(api) }],
+  ];
+}
+// Adding the bot via "Create a club" sends two updates (bot added + /start), so welcome a chat once a minute at most.
+const welcomedAt = new Map<number, number>();
 async function welcomeGroup(api: Api, chatId: number) {
+  if (Date.now() - (welcomedAt.get(chatId) ?? 0) < 60_000) return;
+  welcomedAt.set(chatId, Date.now());
   const club = getClub(chatId);
   await sendBanner(api, chatId,
     club
-      ? `<b>Stock Club is here</b> 👋\n\nThis group is the club <b>${esc(club.name)}</b>. New here? Tap Join.\n\n${WELCOME_POINTS}`
+      ? `<b>Stock Club is here</b> 👋\n\nThis group is the club <b>${esc(club.name)}</b>. New here? Tap <b>Join the club</b>, then propose your first trade.\n\n${WELCOME_POINTS}`
       : `<b>Hello, investors</b> 👋\n\nI'm Stock Club. I turn this group into an investing club for tokenized stocks on BNB Chain.\n\n${WELCOME_POINTS}\n\nTap <b>Start a club here</b> to begin.`,
-    [
-      [club ? { text: "✅ Join the club", callback_data: "join" } : { text: "🚀 Start a club here", callback_data: "club_start" }],
+    club ? await clubKeyboard(api) : [
+      [{ text: "🚀 Start a club here", callback_data: "club_start" }],
       [{ text: "📈 Open Stock Club", url: await appLink(api) }],
       [{ text: "🧭 How it works", url: await appLink(api, "intro") }],
     ]);
@@ -112,7 +125,7 @@ async function startClub(api: Api, chatId: number, title: string, userId: number
   const club = createClub(chatId, title.slice(0, 60), userId, name);
   await api.sendMessage(chatId,
     `🎉 <b>${esc(club.name)}</b> is open!\n${esc(name)} is the first member.\n\nEveryone else: tap <b>Join the club</b>.\n\n${rulesText(getRules(club.id))}`,
-    { parse_mode: "HTML", reply_markup: { inline_keyboard: [[{ text: "✅ Join the club", callback_data: "join" }], [{ text: "📈 Open Stock Club", url: await appLink(api) }]] } });
+    { parse_mode: "HTML", reply_markup: { inline_keyboard: await clubKeyboard(api) } });
 }
 
 // Bot added to a group -> welcome banner.
