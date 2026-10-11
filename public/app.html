@@ -117,6 +117,16 @@
   .news b { font-size: 14px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .alrow { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); font-size: 13px; }
   .browse { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-radius: 14px; margin-top: 10px; background: var(--card2); border: 1px solid var(--line2); font-weight: 800; width: 100%; }
+  .apicon { width: 42px; height: 42px; border-radius: 13px; display: grid; place-items: center; color: #15120a; background: linear-gradient(180deg, #ffd84f, #e9ae05); box-shadow: 0 8px 18px -10px rgba(240,185,11,.8); }
+  .appill { font-size: 12px; font-weight: 800; padding: 6px 12px; border-radius: 999px; background: var(--card2); color: var(--muted); border: 1px solid var(--line2); }
+  .appill.on { background: rgba(240,185,11,.14); color: var(--gold); border-color: rgba(240,185,11,.45); }
+  .paircode { display: flex; justify-content: center; gap: 8px; margin: 12px 0 4px; }
+  .paircode span { width: 44px; height: 54px; border-radius: 12px; display: grid; place-items: center; font-size: 26px; font-weight: 800; background: var(--card2); border: 1px solid var(--gold); color: var(--gold); }
+  .switch { position: relative; width: 50px; height: 30px; border-radius: 999px; background: #2a313b; border: 0; transition: background .2s; flex: none; }
+  .switch::after { content: ""; position: absolute; left: 3px; top: 3px; width: 24px; height: 24px; border-radius: 50%; background: #eef0f3; transition: left .2s; }
+  .switch.on { background: linear-gradient(180deg, #ffd84f, #e9ae05); } .switch.on::after { left: 23px; background: #15120a; }
+  .spin { display: inline-block; width: 11px; height: 11px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: r .8s linear infinite; vertical-align: -1px; margin-right: 6px; }
+  @keyframes r { to { transform: rotate(360deg); } }
   /* ticker tape */
   .tape { position: relative; overflow: hidden; margin: 12px -16px 0; padding: 9px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: rgba(255,255,255,.015); -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
   .tape .run { display: inline-flex; gap: 22px; white-space: nowrap; animation: tape 38s linear infinite; padding-left: 16px; }
@@ -323,6 +333,15 @@
 <!-- ===== Club ===== -->
 <div class="view" id="v-club"><div class="wrap">
   <h1>Club</h1>
+  <div class="card glow" id="apCard">
+    <div class="row between">
+      <div class="row" style="gap:12px"><div class="apicon"><svg class="ic"><use href="#i-bot"/></svg></div>
+        <div><h3 style="margin:0">Autopilot</h3><div class="muted" style="font-size:12px">Binance Agentic Wallet</div></div></div>
+      <span class="appill" id="apPill">…</span>
+    </div>
+    <div class="muted" style="margin-top:10px">When your club votes yes and you voted yes, Autopilot <b style="color:var(--fg)">buys for you automatically</b> from your own Agentic Wallet. No tapping. You set the spending limit in the Binance app; Stock Club never holds your money.</div>
+    <div id="apBody" style="margin-top:12px"><div class="skel"></div></div>
+  </div>
   <div id="clubs"><div class="card"><div class="skel"></div></div></div>
   <h2>How a club trade works</h2>
   <div class="card">
@@ -463,6 +482,7 @@ document.querySelectorAll(".tab").forEach((b) => b.onclick = () => {
   document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("on", x === b));
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("on", v.id === `v-${b.dataset.v}`));
   if (b.dataset.v === "port") loadPortfolio();
+  if (b.dataset.v === "club") loadAutopilot();
 });
 
 // ---------- markets ----------
@@ -579,6 +599,55 @@ function renderClubs() {
       </table>
       ${c.rules.paused ? `<div class="pill closed" style="margin-top:8px">${icon("pause", "sm")}Paused</div>` : ""}
     </div>`).join("");
+}
+
+// ---------- autopilot ----------
+let apPoll;
+async function loadAutopilot() {
+  let a;
+  try { a = await api("autopilot"); } catch (e) { $("apBody").innerHTML = `<div class="muted">${e.message}</div>`; return; }
+  if (!a.available) { $("apPill").textContent = "Unavailable"; $("apBody").innerHTML = `<div class="muted">Autopilot isn't available on this server right now.</div>`; return; }
+  $("apPill").textContent = a.on ? "ON" : "OFF"; $("apPill").classList.toggle("on", !!a.on);
+  if (!a.inClub) { $("apBody").innerHTML = `<div class="muted">Join a club first, then connect Autopilot.</div>`; return; }
+  if (a.connected) {
+    clearInterval(apPoll);
+    const w = a.wallet ?? {};
+    $("apBody").innerHTML = `
+      <div class="row between" style="padding:10px 12px;border-radius:12px;background:rgba(0,0,0,.25);border:1px solid var(--line)">
+        <div><b>${a.on ? "Buying for you" : "Paused"}</b><div class="muted" style="font-size:12px">${a.on ? "You'll get a message after each buy." : "You'll get a Buy button instead."}</div></div>
+        <button class="switch ${a.on ? "on" : ""}" id="apSwitch" aria-label="Autopilot on/off"></button>
+      </div>
+      <div class="muted addr" style="margin-top:12px">${icon("wallet", "sm")}<code>${w.address ? `${w.address.slice(0, 6)}…${w.address.slice(-4)}` : "?"}</code><span>· Agentic Wallet</span></div>
+      <div class="kstats num" style="margin-top:10px"><div><small>USDT</small><b>$${fmt(w.usdt)}</b></div><div><small>BNB · fees</small><b>${fmt(w.bnb, 4)}</b></div><div><small>Daily limit</small><b>${w.dailyLimit ? `$${w.dailyLimit}` : "–"}</b></div></div>
+      ${w.usdt < 1 ? `<div class="callout" style="margin-top:10px">${icon("alert")}<div class="muted">Top up: send USDT and a little BNB on <b style="color:var(--fg)">BNB Smart Chain (BEP20)</b> to the Agentic Wallet address above.</div></div>` : ""}
+      ${w.loginEnds ? `<div class="muted" style="margin-top:8px;font-size:12px">Binance keeps you signed in while you use it; idle logins end ${new Date(w.loginEnds).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}.</div>` : ""}`;
+    $("apSwitch").onclick = async () => { haptic(); try { await api("autopilot", { action: a.on ? "off" : "on" }); toast(a.on ? "Autopilot paused." : "Autopilot is ON.", "ok"); } catch (e) { toast(e.message, "bad"); } loadAutopilot(); loadMe(); };
+    return;
+  }
+  if (a.pending) return showPairing(a.pending);
+  $("apBody").innerHTML = `${a.failed ? `<div class="callout" style="margin-bottom:10px">${icon("alert")}<div class="muted">Last login didn't finish (${a.failed}). Try again.</div></div>` : ""}
+    <button class="btn" id="apConnect">${icon("bot", "sm")}Connect Agentic Wallet</button>
+    <div class="muted" style="margin-top:8px;font-size:12px">You approve in the Binance app. Takes about a minute.</div>`;
+  $("apConnect").onclick = async () => {
+    haptic(); $("apConnect").disabled = true;
+    try { const r = await api("autopilot", { action: "connect" }); if (r.connected) return loadAutopilot(); showPairing(r); }
+    catch (e) { toast(e.message, "bad"); $("apConnect").disabled = false; }
+  };
+}
+function showPairing(p) {
+  $("apBody").innerHTML = `
+    <div class="muted" style="text-align:center">Check this code in the Binance app:</div>
+    <div class="paircode num">${String(p.code).split("").map((c) => `<span>${c}</span>`).join("")}</div>
+    <button class="btn" id="apOpen">Open Binance to approve ${icon("next", "sm")}</button>
+    <div class="flow" style="margin-top:14px">
+      <div class="n">1</div><div class="muted" style="padding-top:4px">Approve the login (the code must match)</div><div class="l"></div><div></div>
+      <div class="n">2</div><div class="muted" style="padding-top:4px">If asked, create the Agentic Wallet and tick <b style="color:var(--fg)">Secure Auto Sign</b></div><div class="l"></div><div></div>
+      <div class="n">3</div><div class="muted" style="padding-top:4px">Come back here. This page updates by itself.</div>
+    </div>
+    <div class="muted" style="margin-top:10px;font-size:12px;text-align:center"><span class="spin"></span>Waiting for your approval · the login request comes from our server in Frankfurt, that's expected</div>`;
+  $("apOpen").onclick = () => { haptic(); tg?.openLink ? tg.openLink(p.url) : window.open(p.url, "_blank"); };
+  clearInterval(apPoll);
+  apPoll = setInterval(async () => { const a = await api("autopilot").catch(() => null); if (a && (a.connected || !a.pending)) { clearInterval(apPoll); if (a.connected) { tg?.HapticFeedback?.notificationOccurred("success"); toast("Agentic Wallet connected. Autopilot is ON.", "ok"); } loadAutopilot(); loadMe(); } }, 3000);
 }
 
 // ---------- portfolio ----------

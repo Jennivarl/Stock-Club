@@ -5,10 +5,11 @@ import fs from "node:fs";
 import path from "node:path";
 import type http from "node:http";
 import type { Api } from "grammy";
-import { clubsOf, db, getClub, getMember, getMembers, getRules } from "./db.js";
+import { clubsOf, db, getClub, getMember, getMembers, getRules, setAutopilot } from "./db.js";
 import { startProposal } from "./proposals.js";
 import { candles, impact, news, stockDetail, universe } from "./tools.js";
 import { activeAlerts, addAlert, describe } from "./alerts.js";
+import { autopilotAvailable, isConnected, startSignin, waitForSignin, walletInfo } from "./autopilot.js";
 import { isTradable, ISSUER_NAME, quotesForMany, wallStreetNow } from "./rwa.js";
 import { realQuote } from "./stocks.js";
 import { balances, tokenBalance } from "./trading.js";
@@ -136,6 +137,7 @@ async function portfolio(wallet: string) {
 }
 
 let botName: string | undefined;
+const signins = new Map<number, { url: string; code: string; at: number; status: "waiting" | "ok" | "failed"; error?: string }>();
 const isAddr = (s: unknown): s is string => typeof s === "string" && /^0x[0-9a-fA-F]{40}$/.test(s);
 
 // Returns true if it handled the request.
@@ -191,6 +193,50 @@ export async function handleApp(api: Api, req: http.IncomingMessage, url: URL, s
     const w = url.searchParams.get("wallet") || lastWallet(user.id);
     if (!isAddr(w)) { send(200, { wallet: null }); return true; }
     send(200, await portfolio(w)); return true;
+  }
+  // Autopilot (Binance Agentic Wallet) from the app: same flow as /autopilot in the bot.
+  if (url.pathname === "/api/app/autopilot") {
+    if (!autopilotAvailable()) { send(200, { available: false }); return true; }
+    const inClub = clubsOf(user.id).length > 0;
+    if (req.method === "POST") {
+      const { action } = await readJson();
+      if (!inClub) { send(409, { error: "Join a club first." }); return true; }
+      if (action === "off") { setAutopilot(user.id, false); send(200, { ok: true }); return true; }
+      if (action === "on") {
+        if (!(await isConnected(user.id))) { send(409, { error: "Connect your Agentic Wallet first." }); return true; }
+        setAutopilot(user.id, true); send(200, { ok: true }); return true;
+      }
+      if (action === "connect") {
+        if (await isConnected(user.id)) { setAutopilot(user.id, true); send(200, { connected: true }); return true; }
+        const p = signins.get(user.id);
+        if (p?.status === "waiting" && Date.now() - p.at < 5 * 60_000) { send(200, { url: p.url, code: p.code }); return true; }
+        const s = await startSignin(user.id);
+        if ("error" in s) { send(502, { error: `Couldn't start the Binance login: ${s.error}` }); return true; }
+        if ("already" in s) { setAutopilot(user.id, true); send(200, { connected: true }); return true; }
+        const entry = { url: s.url, code: s.code, at: Date.now(), status: "waiting" as "waiting" | "ok" | "failed", error: undefined as string | undefined };
+        signins.set(user.id, entry);
+        // Waits in the background (up to ~5 min); the app polls GET /api/app/autopilot.
+        waitForSignin(user.id, s.qrCodeId).then(async (r) => {
+          entry.status = r.ok ? "ok" : "failed"; entry.error = r.error;
+          if (r.ok) {
+            setAutopilot(user.id, true);
+            await api.sendMessage(user.id, "✅ Agentic Wallet connected. Autopilot is ON: when your club votes yes and you voted yes, I buy for you.").catch(() => {});
+          }
+        }).catch((e) => { entry.status = "failed"; entry.error = String(e?.message ?? e); });
+        send(200, { url: s.url, code: s.code }); return true;
+      }
+      send(400, { error: "Unknown action." }); return true;
+    }
+    const connected = await isConnected(user.id);
+    const on = connected && clubsOf(user.id).some((c) => getMember(c.id, user.id)?.autopilot_on);
+    const p = signins.get(user.id);
+    let wallet = null;
+    if (connected) {
+      const w = await walletInfo(user.id);
+      wallet = { address: w.address ?? null, usdt: w.usdt, bnb: w.bnb, dailyLimit: w.settings?.dailyLimit ?? null, loginEnds: w.settings?.inactiveSignOutTime ?? null };
+    }
+    send(200, { available: true, inClub, connected, on, wallet, pending: p && p.status === "waiting" && Date.now() - p.at < 5 * 60_000 ? { url: p.url, code: p.code } : null, failed: p?.status === "failed" ? (p.error ?? "not approved") : null });
+    return true;
   }
   if (req.method === "POST" && url.pathname === "/api/app/alert") {
     const { chatId, ticker, kind, value } = await readJson();
