@@ -58,8 +58,10 @@ async function logo(id: string): Promise<Buffer | undefined> {
 
 // "Log in with Telegram" on the website (https://core.telegram.org/widgets/login#checking-authorization):
 // hash = HMAC-SHA256(data_check_string, SHA256(bot_token)). We accept a login for 7 days.
-export function userFromLoginWidget(json: string): TgUser | undefined {
+export function userFromLoginWidget(header: string): TgUser | undefined {
   let d: Record<string, string | number>;
+  // The page sends base64 of the UTF-8 JSON (headers can't carry names with emoji/symbols); plain JSON also accepted.
+  const json = header.trim().startsWith("{") ? header : Buffer.from(header, "base64").toString("utf8");
   try { d = JSON.parse(json); } catch { return undefined; }
   if (!d || typeof d.hash !== "string" || !d.id) return undefined;
   const check = Object.keys(d).filter((k) => k !== "hash" && d[k] != null).sort().map((k) => `${k}=${d[k]}`).join("\n");
@@ -168,6 +170,12 @@ export async function handleApp(api: Api, req: http.IncomingMessage, url: URL, s
     if (!buf) { send(404, { error: "No logo" }); return true; }
     res.writeHead(200, { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" });
     res.end(buf); return true;
+  }
+  // Debug: website login steps from the browser (event names only).
+  if (req.method === "POST" && url.pathname === "/api/app/clientlog") {
+    const b = await readJson().catch(() => ({}));
+    console.log("weblog", String(b.event ?? "").slice(0, 40), String(b.detail ?? "").slice(0, 160));
+    send(200, { ok: true }); return true;
   }
   if (req.method === "GET" && url.pathname === "/api/app/info") {
     botName ??= (await api.getMe()).username;

@@ -316,6 +316,7 @@
   <div class="dots" id="obDots"></div>
   <button class="btn" id="obNext">Next</button>
   <button class="linkbtn" id="obBrowse" style="display:none">Just browse the markets for now</button>
+  <a class="btn ghost" id="obOpenTg" style="display:none;text-decoration:none" target="_blank">Open in Telegram</a>
 </div>
 
 <!-- ===== Markets ===== -->
@@ -506,6 +507,8 @@
 const tg = window.Telegram?.WebApp; tg?.ready(); tg?.expand();
 try { tg?.setHeaderColor?.("#0a0c10"); tg?.setBackgroundColor?.("#0a0c10"); tg?.disableVerticalSwipes?.(); } catch {}
 const $ = (id) => document.getElementById(id);
+// UTF-8 safe base64 (HTTP headers only allow plain characters; Telegram names can contain emoji/symbols)
+const b64 = (str) => { if (!str) return ""; const bytes = new TextEncoder().encode(str); let bin = ""; for (const x of bytes) bin += String.fromCharCode(x); return btoa(bin); };
 // Inside Telegram we get signed initData; in a normal browser we use "Log in with Telegram" instead.
 const inTG = !!tg?.initData;
 if (!inTG) document.documentElement.classList.add("web");
@@ -529,7 +532,7 @@ const big = (n) => n == null ? "–" : n >= 1e12 ? `$${(n / 1e12).toFixed(2)}T` 
 
 async function api(path, body) {
   const r = await fetch(`/api/app/${path}`, { method: body ? "POST" : "GET",
-    headers: { "Content-Type": "application/json", "X-Init-Data": tg?.initData ?? "", "X-Tg-Login": inTG ? "" : (store.get("tglogin") || "") }, body: body ? JSON.stringify(body) : undefined });
+    headers: { "Content-Type": "application/json", "X-Init-Data": tg?.initData ?? "", "X-Tg-Login": inTG ? "" : b64(store.get("tglogin") || "") }, body: body ? JSON.stringify(body) : undefined });
   const j = await r.json();
   if (!r.ok) throw new Error(j.error || `Error ${r.status}`);
   return j;
@@ -1222,6 +1225,7 @@ function go(i) {
   document.querySelectorAll("#obTrack .slide").forEach((el, k) => { el.classList.remove("on"); if (k === slide) { void el.offsetWidth; el.classList.add("on"); } });
   $("obDots").innerHTML = [...SLIDES, 0].map((_, k) => `<i class="${k === slide ? "on" : ""}"></i>`).join("");
   $("obSkip").textContent = slide < SLIDES.length ? "Skip" : "Later";
+  if (!inTG) { $("obOpenTg").style.display = ""; $("obOpenTg").href = `https://t.me/${appInfo?.bot ?? "stockclubhqbot"}/app`; }
   if (slide < SLIDES.length) $("obBrowse").style.display = "none";
   if (slide < SLIDES.length) { $("obNext").innerHTML = slide === SLIDES.length - 1 ? `Get ready ${icon("next", "sm")}` : `Next ${icon("next", "sm")}`; $("obNext").onclick = () => { haptic(); go(slide + 1); }; }
   else renderChecklist();
