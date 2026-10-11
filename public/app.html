@@ -158,6 +158,7 @@
   .stepper button { width: 38px; height: 38px; background: var(--card2); color: var(--gold); font-size: 20px; font-weight: 800; }
   .stepper b { min-width: 74px; text-align: center; font-size: 15px; font-weight: 800; }
   .opts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .linkbtn { display: flex; align-items: center; justify-content: center; gap: 4px; width: 100%; margin-top: 8px; padding: 10px; background: none; color: var(--muted); font-weight: 700; font-size: 13px; }
   .choose { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
   .pick { text-align: left; padding: 12px; border-radius: 14px; background: var(--card2); border: 1px solid var(--line2); display: flex; flex-direction: column; gap: 4px; }
   .pick .ic { color: var(--gold); width: 22px; height: 22px; } .pick b { font-size: 14px; } .pick span { font-size: 11.5px; color: var(--muted); line-height: 1.35; }
@@ -694,15 +695,12 @@ const clubHowTo = () => `<div class="flow" style="margin-top:10px">
   <div class="n">2</div><div class="muted" style="padding-top:4px">In the group, tap <b style="color:var(--fg)">Start a club here</b></div><div class="l"></div><div></div>
   <div class="n">3</div><div class="muted" style="padding-top:4px">Friends tap <b style="color:var(--fg)">Join the club</b>. Done.</div></div>
   <button class="btn" data-newclub style="margin-top:12px">${icon("users", "sm")}Create a club</button>`;
-const clubOrSolo = () => `<div class="muted" style="margin-top:4px">Decide together with friends in a Telegram group, or trade on your own. You can do both later.</div>
-  <div class="choose">
-    <button class="pick" data-newclub>${icon("users")}<b>Create a club</b><span>Friends vote, everyone buys in their own wallet</span></button>
-    <button class="pick" data-gosolo>${icon("wallet")}<b>Go solo</b><span>Buy and sell right away, no vote</span></button>
-  </div>`;
+const clubOrSolo = () => `<div class="muted" style="margin-top:4px">Stock Club is made for friends: propose a stock, vote in your group, and everyone buys in their own wallet.</div>${clubHowTo()}
+  <button class="linkbtn" data-gosolo>Or trade solo for now ${icon("next", "sm")}</button>`;
 document.addEventListener("click", (e) => {
   if (!e.target.closest?.("[data-gosolo]")) return;
   e.preventDefault(); haptic(); store.set("solo", "1");
-  toast("Solo it is. Your first trade: NVDA, Solo, Buy $1 now.", "ok");
+  toast("Solo for now. You can start a club anytime from the Club tab.", "ok");
   if ($("ob").classList.contains("on")) renderChecklist(); else refreshStart();
 });
 document.addEventListener("click", (e) => {
@@ -1237,8 +1235,8 @@ async function getSteps() {
     { ok: !!wallet, i: "wallet", t: "Binance Wallet", d: wallet ? `Connected <code>${wallet.slice(0, 6)}…${wallet.slice(-4)}</code>` : `${newToBinance()}Already have it? In the Binance app open <b>Wallet</b> (keyless) and paste your BNB Smart Chain address:<input id="obW" placeholder="0x…" />` },
     { ok: p ? p.usdt >= 1 : false, i: "coins", t: "USDT on BNB Smart Chain", d: p ? `You have <b class="num" style="color:var(--fg)">$${fmt(p.usdt)}</b>.` + (p.usdt >= 1 ? "" : " Buy USDT in the Binance app and send it to your Binance Wallet on BNB Smart Chain.") : "The cash you buy stocks with. $5 is plenty to start." },
     { ok: p ? p.bnb >= 0.0003 : false, i: "fuel", t: "A little BNB for fees", d: p ? `You have <span class="num">${fmt(p.bnb, 5)}</span> BNB.` + (p.bnb >= 0.0003 ? " Enough for many trades." : " About $0.50 covers many trades (a few cents each).") : "Each trade costs a few cents in BNB." },
-    { ok: hasClub || solo, i: "users", t: "Trade with a club, or solo", d: hasClub ? `You're in <b style="color:var(--fg)">${me.clubs.map((c) => c.name).join(", ")}</b>.`
-        : solo ? `You're trading <b style="color:var(--fg)">solo</b>. You can start a club anytime from the Club tab.` : clubOrSolo() },
+    { ok: hasClub || solo, i: "users", t: "Join or start a club", d: hasClub ? `You're in <b style="color:var(--fg)">${me.clubs.map((c) => c.name).join(", ")}</b>.`
+        : solo ? `Trading solo for now. Clubs are where Stock Club shines: friends vote, everyone buys in their own wallet.${clubHowTo()}` : clubOrSolo() },
     { ok: did, i: "zap", t: "Your first trade", d: hasClub ? "Try it with $1: propose NVDA, vote yes in the group, then tap Buy in your chat with me."
         : solo ? "Try it with $1: open NVDA, pick Solo, tap Buy $1 now." : "After you pick club or solo." },
   ] };
