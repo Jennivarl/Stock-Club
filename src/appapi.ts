@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type http from "node:http";
 import type { Api } from "grammy";
-import { clubsOf, createTapOrder, db, getClub, getMember, getMembers, getRules, setAutopilot, setRule, soloDesk } from "./db.js";
+import { clubsOf, createTapOrder, db, getClub, getMember, getMembers, getRules, setAutopilot, setRule, soloDesk, type Rules } from "./db.js";
 import { checkMarket, pickIssuer, startProposal } from "./proposals.js";
 import { priceCard, type Card } from "./card.js";
 import { candles, impact, news, stockDetail, universe } from "./tools.js";
@@ -16,6 +16,9 @@ import { realQuote } from "./stocks.js";
 import { balances, tokenBalance } from "./trading.js";
 
 // The 15 stocks our logger has tracked (real price + on-chain) since Oct 4.
+// Paper trades use a new club's default limits.
+const PAPER_RULES = { max_gap_percent: 2, max_spread_percent: 2 } as Rules;
+
 export const WATCH = ["NVDA", "TSLA", "AAPL", "MSFT", "META", "AMZN", "GOOGL", "AMD", "MU", "COIN", "CRCL", "QQQ", "SPY", "PLTR", "NFLX"];
 
 type TgUser = { id: number; first_name?: string; username?: string };
@@ -210,6 +213,21 @@ export async function handleApp(api: Api, req: http.IncomingMessage, url: URL, s
     const out: Record<string, number[]> = {};
     for (const t of WATCH) out[t] = ((chart(t, 2) as any).points as { t: number; onchain: number }[]).filter((p) => p.t > Date.now() - 48 * 3600_000).map((p) => p.onchain);
     send(200, out); return true;
+  }
+  // Paper trading (free, no wallet, no login): the fill price is the live on-chain share price, after the same
+  // market checks a real trade gets (open issuer, Ondo minimum, gap and issuer-spread limits at the default 2%).
+  // Nothing is bought; the paper balance is kept on the user's device.
+  if (req.method === "GET" && url.pathname === "/api/app/paperquote") {
+    const sd: "buy" | "sell" = url.searchParams.get("side") === "sell" ? "sell" : "buy";
+    const usd = Number(url.searchParams.get("usd") ?? 0);
+    if (!tk || !Number.isFinite(usd) || usd < 0 || usd > 100_000) { send(422, { error: "Pick a stock and an amount." }); return true; }
+    let card: Card;
+    try { card = await priceCard(tk); } catch { send(502, { error: "Couldn't get prices from Binance right now. Try again in a minute." }); return true; }
+    const no = checkMarket(card, PAPER_RULES, usd, sd);
+    if (no) { send(422, { error: no.replace(/<[^>]+>/g, "") }); return true; }
+    const pick = pickIssuer(card, usd, sd)!;
+    send(200, { price: pick.sharePrice, issuer: ISSUER_NAME[pick.platformId], symbol: pick.tokenSymbol, gapPct: card.real ? (pick.sharePrice / card.real.price - 1) * 100 : null });
+    return true;
   }
 
   // Inside Telegram: the Mini App's signed initData. On the website: the signed "Log in with Telegram" data.

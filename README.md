@@ -33,6 +33,7 @@ Stock Club shows the gap for every stock, and lets a group of friends **decide t
 - **Stock page:** on-chain **candlestick charts** (1H / 4H / since launch) with **MA 20 / MA 50 / RSI**; a **gap view** (on-chain vs real price, closed-market hours shaded); next **earnings date**; **news**; **depth** (what a $100 / $1,000 / $10,000 buy really costs); prices from each issuer.
 - **All 448 tokenized stocks** on BNB Chain, searchable.
 - **Trade with your club or solo** (solo = buy/sell right away, same safety checks).
+- **Paper trading, free:** $1,000 of pretend USDT, no wallet or login needed. Paper trades fill at the live on-chain price after the same market checks as a real trade (issuer open, Ondo minimum, max gap, issuer spread), and the Portfolio tab shows your paper profit/loss. Nothing real is bought; the paper account is saved on your device.
 - **Portfolio**, **club rules editor** (creator only), **Autopilot** connect/on/off.
 - **Onboarding** for complete beginners: 3 short intro screens, a checklist that reads your real balances, a "New to Binance?" guide, and a guided first $1 trade.
 - **Website login with Telegram** (stockclubhq.xyz), so it also works on a big screen.
@@ -59,7 +60,9 @@ Real stock prices come from **Finnhub** (free plan). Wallet connection uses **Wa
 
 ## Try it (for judges)
 
-You need Telegram, the Binance app, and a little **USDT + BNB on BNB Smart Chain** (a few dollars is plenty; trades work from $1).
+**Fastest, free (no wallet, no money, no login):** open **[stockclubhq.xyz](https://stockclubhq.xyz)** or the bot's Mini App, tap **Start paper trading** on Markets (or pick **Paper** under *Trade* on any stock), and buy or sell with $1,000 of pretend USDT at live on-chain prices. Your paper portfolio is in the **Portfolio** tab → **Paper**.
+
+**Real trades** need Telegram, the Binance app, and a little **USDT + BNB on BNB Smart Chain** (a few dollars is plenty; trades work from $1).
 
 1. Open **[@stockclubhqbot](https://t.me/stockclubhqbot)** and press **Start**. Tap **Open Stock Club** to see the intro, the markets, the gap and the charts (no money needed for this part).
 2. **Make a club:** tap **Add me to a group**, pick or create a group, then tap **Start a club here** in the group. Friends tap **Join the club**.
@@ -117,7 +120,7 @@ src/
   autopilot.ts   Binance Agentic Wallet (baw) sign-in, buy, sell
   rwa.ts         RWA Data API: tokens, prices, market status
   tools.ts       Candles, news + earnings, price impact, full stock list
-  appapi.ts      Mini App / website API (Telegram login check, markets, portfolio, rules, solo)
+  appapi.ts      Mini App / website API (Telegram login check, markets, portfolio, rules, solo, paper quotes)
   alerts.ts      Club alerts
   web.ts         HTTP server: Mini App, Buy/Sell page, chain watcher
   db.ts          SQLite schema and queries

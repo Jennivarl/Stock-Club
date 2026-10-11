@@ -338,6 +338,13 @@
       <div class="row" style="gap:10px;flex-wrap:wrap"><div id="tgWidget"></div><a class="btn ghost" id="openTg" style="width:auto;margin:0;padding:11px 16px;text-decoration:none" target="_blank">Open in Telegram</a></div>
     </div>
   </div>
+  <div class="card glow" id="paperCard" style="display:none">
+    <div class="row between" style="gap:14px;flex-wrap:wrap">
+      <div class="row" style="gap:12px;flex:1;min-width:220px"><svg class="ic lg gold"><use href="#i-coins"/></svg>
+        <div><h3 style="margin:0">Try it free: paper trading</h3><div class="muted">$1,000 of pretend USDT. Live on-chain prices, same safety checks, nothing real is bought. No wallet needed.</div></div></div>
+      <button class="btn" id="paperGo" style="width:auto;margin:0;padding:11px 18px">Start paper trading</button>
+    </div>
+  </div>
   <div class="row between" id="webUser" style="display:none;margin:8px 2px 0"><span class="muted" id="webUserName"></span><a href="#" class="muted" id="webLogout" style="font-weight:700">Log out</a></div>
   <div class="card hero" id="hero">
     <div class="row" style="gap:12px"><svg class="ic lg gold"><use href="#i-bank" id="heroIcon"/></svg>
@@ -448,7 +455,7 @@
     <div><div class="muted" style="font-weight:700">Next earnings</div><b id="eWhen"></b><div class="muted" id="eEps"></div></div></div></div>
 
   <div class="row between" style="margin:22px 2px 10px"><h2 style="margin:0">Trade</h2>
-    <div class="seg" id="tmode"><button data-t="club" class="on">With club</button><button data-t="solo">Solo</button></div></div>
+    <div class="seg" id="tmode"><button data-t="club" class="on">With club</button><button data-t="solo">Solo</button><button data-t="paper">Paper</button></div></div>
   <div class="card glow" id="tradeCard">
     <div class="row" style="gap:8px"><svg class="ic sm gold"><use href="#i-users" id="tradeIcon"/></svg><span class="muted" id="tradeClub"></span></div>
     <div class="chips" id="amounts" style="margin:12px 0 2px"></div>
@@ -699,7 +706,12 @@ async function loadMe() {
   if (me) $("hello").textContent = `Hi ${me.user.name}`;
   if (me && $("ob").classList.contains("on") && slide >= SLIDES.length) renderChecklist();
   setupWebLogin();
-  renderClubs(); renderStart();
+  renderClubs(); renderStart(); renderPaperCard();
+}
+// Shown until someone has a club or a wallet (e.g. judges trying it out).
+function renderPaperCard() {
+  $("paperCard").style.display = me?.clubs?.length || me?.wallet || store.get("wallet") ? "none" : "";
+  $("paperGo").onclick = () => { haptic(); tmode = "paper"; amount = 100; openStock("NVDA"); };
 }
 // For people with no Binance account yet: the shortest path, in order.
 const newToBinance = () => `<details class="newbn"><summary>${icon("info", "sm")}New to Binance? Start here</summary>
@@ -866,14 +878,25 @@ function showPairing(p) {
 }
 
 // ---------- portfolio ----------
+let portMode = null; // "wallet" | "paper"
+function portSwitch() {
+  return `<div class="seg" id="portSeg" style="margin-bottom:12px"><button data-p="paper" class="${portMode === "paper" ? "on" : ""}">Paper</button><button data-p="wallet" class="${portMode === "wallet" ? "on" : ""}">My wallet</button></div>`;
+}
+function bindPortSwitch() {
+  document.querySelectorAll("#portSeg button").forEach((b) => b.onclick = () => { portMode = b.dataset.p; haptic(); loadPortfolio(); });
+}
 async function loadPortfolio() {
   const w = store.get("wallet") || me?.wallet;
+  portMode ??= w ? "wallet" : "paper";
+  if (portMode === "paper") return loadPaperPortfolio();
   if (!w) {
-    $("port").innerHTML = `<div class="card"><div class="row">${icon("wallet", "gold")}<h3 style="margin:0">Add your wallet</h3></div><div class="muted" style="margin-top:6px">Paste your Binance Wallet address (BNB Smart Chain). We only read balances.</div><input id="pw" placeholder="0x…" /><button class="btn" id="pwGo">Show my portfolio</button></div>`;
+    $("port").innerHTML = portSwitch() + `<div class="card"><div class="row">${icon("wallet", "gold")}<h3 style="margin:0">Add your wallet</h3></div><div class="muted" style="margin-top:6px">Paste your Binance Wallet address (BNB Smart Chain). We only read balances.</div><input id="pw" placeholder="0x…" /><button class="btn" id="pwGo">Show my portfolio</button></div>`;
     $("pwGo").onclick = () => { const v = $("pw").value.trim(); if (/^0x[0-9a-fA-F]{40}$/.test(v)) { store.set("wallet", v); loadPortfolio(); } else toast("That doesn't look like a wallet address.", "bad"); };
+    bindPortSwitch();
     return;
   }
-  $("port").innerHTML = `<div class="card"><div class="skel"></div><br><div class="skel"></div></div>`;
+  $("port").innerHTML = portSwitch() + `<div class="card"><div class="skel"></div><br><div class="skel"></div></div>`;
+  bindPortSwitch();
   try {
     const p = await api(`portfolio?wallet=${w}`);
     const stocksVal = p.holdings.reduce((s, h) => s + h.value, 0);
@@ -884,7 +907,7 @@ async function loadPortfolio() {
       ${invested > 0 ? `<circle cx="46" cy="46" r="${R}" fill="none" stroke="url(#dn)" stroke-width="9" stroke-linecap="round" stroke-dasharray="${Math.max(C * invested, 4)} ${C}" transform="rotate(-90 46 46)"/>` : ""}
       <text x="46" y="47" text-anchor="middle" fill="#eef0f3" font-size="17" font-weight="800" font-family="Manrope">${Math.round(invested * 100)}%</text>
       <text x="46" y="61" text-anchor="middle" fill="#7d8794" font-size="8.5" font-weight="800" letter-spacing="1" font-family="Manrope">INVESTED</text></svg>`;
-    $("port").innerHTML = `
+    $("port").innerHTML = portSwitch() + `
       <div class="card hero">
         <div class="row between">
           <div><div class="muted" style="font-weight:700">Total value</div><div class="bigprice num">$${fmt(p.total)}</div>
@@ -904,7 +927,44 @@ async function loadPortfolio() {
         ${p.bnb < 0.0003 ? `<div class="callout" style="margin-top:10px">${icon("alert")}<div class="muted">Add a little BNB (about $0.50) to pay network fees.</div></div>` : ""}</div>
       <button class="btn ghost" id="pwChange">Use a different wallet</button>`;
     $("pwChange").onclick = () => { store.set("wallet", ""); if (me) me.wallet = null; loadPortfolio(); };
-  } catch (e) { $("port").innerHTML = `<div class="card muted">${e.message}</div>`; }
+    bindPortSwitch();
+  } catch (e) { $("port").innerHTML = portSwitch() + `<div class="card muted">${e.message}</div>`; bindPortSwitch(); }
+}
+// Paper portfolio: valued at live on-chain prices.
+async function loadPaperPortfolio() {
+  const p = paper.get(), tickers = Object.keys(p.pos);
+  $("port").innerHTML = portSwitch() + `<div class="card"><div class="skel"></div><br><div class="skel"></div></div>`; bindPortSwitch();
+  const prices = {};
+  await Promise.all(tickers.map(async (t) => {
+    const m = market?.stocks.find((x) => x.ticker === t);
+    prices[t] = m?.onchain ?? (await api(`stock?ticker=${t}`).catch(() => null))?.onchain ?? p.pos[t].cost / p.pos[t].qty;
+  }));
+  const rows = tickers.map((t) => { const h = p.pos[t], value = h.qty * prices[t]; return { t, ...h, value, pnl: value - h.cost }; });
+  const stocksVal = rows.reduce((s, r) => s + r.value, 0), total = p.cash + stocksVal, pnl = total - PAPER_START;
+  const up = (n) => `<span class="num ${n >= 0 ? "up" : "down"}" style="color:var(--${n >= 0 ? "up" : "down"})">${n >= 0 ? "+" : "−"}$${fmt(Math.abs(n))}</span>`;
+  $("port").innerHTML = portSwitch() + `
+    <div class="card hero">
+      <div class="muted" style="font-weight:700">Paper account · free practice</div>
+      <div class="bigprice num">$${fmt(total)}</div>
+      <div style="font-weight:700">${up(pnl)} <span class="muted">since you started with $${PAPER_START.toLocaleString()}</span></div>
+      <div class="kstats num" style="grid-template-columns:1fr 1fr;margin-top:14px">
+        <div><small>In stocks</small><b>$${fmt(stocksVal)}</b></div>
+        <div><small>Paper cash</small><b>$${fmt(p.cash)}</b></div>
+      </div>
+      <div class="muted" style="margin-top:10px">Nothing here is real money. Prices are live on-chain prices from Binance.</div>
+    </div>
+    <h2>Paper stocks</h2>
+    <div class="card" style="padding:4px 12px">${rows.length ? rows.map((r) => `<div class="stock" data-t="${r.t}" style="grid-template-columns:40px 1fr auto">${mono(r.t)}<div><b>${r.t}</b><div class="name"><span class="num">${fmt(r.qty, 4)}</span> sh · paid $${fmt(r.cost)}</div></div><div class="right"><div class="price num">$${fmt(r.value)}</div><div style="font-size:12px;font-weight:700">${up(r.pnl)}</div></div></div>`).join("")
+      : `<div class="muted" style="padding:14px 0">No paper stocks yet. Open any stock in Markets, pick <b style="color:var(--fg)">Paper</b> under Trade, and buy.</div>`}</div>
+    ${p.trades.length ? `<h2>Recent paper trades</h2><div class="card"><table>${p.trades.slice(0, 6).map((x) => `<tr><td>${x.side === "buy" ? "Bought" : "Sold"} <b>${x.t}</b> <span class="muted">· ${fmt(x.qty, 4)} sh at $${fmt(x.price)} · ${x.issuer}</span></td><td class="num">$${fmt(x.usd)}</td></tr>`).join("")}</table></div>` : ""}
+    <button class="btn ghost" id="paperReset">Reset paper account to $${PAPER_START.toLocaleString()}</button>`;
+  bindPortSwitch();
+  document.querySelectorAll("#port .stock[data-t]").forEach((el) => el.onclick = () => { tmode = "paper"; openStock(el.dataset.t); });
+  $("paperReset").onclick = () => {
+    const reset = () => { paper.save({ cash: PAPER_START, pos: {}, trades: [] }); haptic(); loadPaperPortfolio(); };
+    const q = "Start over with $1,000 of paper cash?";
+    if (tg?.showConfirm && tg.isVersionAtLeast?.("6.2")) tg.showConfirm(q, (ok) => ok && reset()); else if (confirm(q)) reset();
+  };
 }
 
 // ---------- stock page ----------
@@ -934,12 +994,15 @@ async function openStock(t) {
   drawCharts(); loadNews(t); loadDepth(t);
 }
 const setSeg = (sel, key, v) => document.querySelectorAll(`${sel} button`).forEach((x) => x.classList.toggle("on", x.dataset[key] === v));
-let tmode = null; // "club" | "solo"
+let tmode = null; // "club" | "solo" | "paper"
 document.querySelectorAll("#tmode button").forEach((b) => b.onclick = () => { tmode = b.dataset.t; haptic(); renderTrade(); });
 function renderTrade() {
   const club = me?.clubs?.[0], s = current;
-  tmode ??= club ? "club" : "solo";
+  // No club and no wallet yet (e.g. a first visit): start on free paper trading.
+  tmode ??= club ? "club" : (me?.wallet || store.get("wallet")) ? "solo" : "paper";
   setSeg("#tmode", "t", tmode);
+  if (tmode === "paper") return renderPaperTrade();
+  $("pSell").style.display = "";
   const solo = tmode === "solo";
   $("tradeIcon").setAttribute("href", solo ? "#i-wallet" : "#i-users");
   $("tradeClub").textContent = solo ? "Solo · trades right away in your own wallet" : club ? `${club.name} · max $${club.rules.max_per_trade} per trade` : "Join or start a club to trade together, or switch to Solo.";
@@ -965,6 +1028,7 @@ $("back").onclick = closeSheet; $("allBack").onclick = closeSheet; tg?.BackButto
 
 async function propose(side) {
   if (tmode === "solo") return soloTrade(side);
+  if (tmode === "paper") return paperTrade(side);
   const club = me?.clubs?.[0]; if (!club || !current) return;
   const btn = side === "sell" ? $("pSell") : $("pBuy"); btn.disabled = true;
   try {
@@ -982,6 +1046,61 @@ async function soloTrade(side) {
   catch (e) { toast(e.message, "bad", 7000); btn.disabled = false; }
 }
 $("pBuy").onclick = () => propose("buy"); $("pSell").onclick = () => propose("sell");
+
+// ----- paper trading -----
+// Free practice: $1,000 of pretend USDT, filled at the live on-chain price after the same market checks
+// as a real trade (the server's /paperquote). Nothing is bought. Kept on this device.
+const PAPER_START = 1000;
+const paper = {
+  get() { try { const p = JSON.parse(store.get("paper") || "null"); if (p && typeof p.cash === "number") return p; } catch {} return { cash: PAPER_START, pos: {}, trades: [] }; },
+  save(p) { store.set("paper", JSON.stringify(p)); },
+};
+function renderPaperTrade() {
+  const s = current, p = paper.get(), held = p.pos[s.ticker];
+  $("tradeIcon").setAttribute("href", "#i-coins");
+  $("tradeClub").innerHTML = `Paper · <b class="num" style="color:var(--fg)">$${fmt(p.cash)}</b> pretend USDT to spend`;
+  $("tradeNote").textContent = "Free practice, nothing real is bought. Live on-chain prices and the same safety check as a real trade. Saved on this device.";
+  const max = Math.floor(p.cash), opts = [10, 25, 50, 100, 250, 500].filter((a) => a <= max);
+  if (amount > max || amount < 1) amount = opts.includes(100) ? 100 : opts.at(-1) ?? Math.max(1, max);
+  $("amounts").innerHTML = opts.map((a) => `<button class="chip num ${a === amount ? "on" : ""}" data-a="${a}">$${a}</button>`).join("");
+  document.querySelectorAll("#amounts .chip").forEach((c) => c.onclick = () => { amount = Number(c.dataset.a); $("amtIn").value = ""; haptic(); renderTrade(); });
+  $("amtIn").max = String(max); $("amtIn").placeholder = `Other amount (up to $${max.toLocaleString()})`;
+  $("amtIn").oninput = () => {
+    const v = Math.floor(Number($("amtIn").value));
+    if (v >= 1) { amount = Math.min(v, max); document.querySelectorAll("#amounts .chip").forEach((c) => c.classList.toggle("on", Number(c.dataset.a) === amount)); }
+    $("pBuy").innerHTML = `${icon("zap")}Paper buy $${amount.toLocaleString()}`;
+    if (v > max) toast(`You have $${fmt(p.cash)} of paper cash.`, "info", 3000);
+  };
+  $("pBuy").innerHTML = `${icon("zap")}Paper buy $${amount.toLocaleString()}`;
+  $("pSell").style.display = held ? "" : "none";
+  $("pSell").innerHTML = `${icon("zap")}Paper sell all my ${s.ticker}`;
+  $("pBuy").disabled = !s.tradable || max < 1; $("pSell").disabled = !s.tradable;
+}
+async function paperTrade(side) {
+  const s = current, p = paper.get(), held = p.pos[s.ticker];
+  const btn = side === "sell" ? $("pSell") : $("pBuy"); btn.disabled = true; haptic();
+  try {
+    if (side === "buy" && amount > p.cash) throw new Error(`You have $${fmt(p.cash)} of paper cash.`);
+    if (side === "sell" && !held) throw new Error(`You don't hold any paper ${s.ticker}.`);
+    const usd = side === "sell" ? held.qty * s.onchain : amount;
+    const q = await api(`paperquote?ticker=${s.ticker}&usd=${usd.toFixed(2)}&side=${side}`);
+    if (side === "buy") {
+      const qty = amount / q.price;
+      p.cash -= amount;
+      p.pos[s.ticker] = { qty: (held?.qty ?? 0) + qty, cost: (held?.cost ?? 0) + amount };
+      p.trades.unshift({ t: s.ticker, side, usd: amount, qty, price: q.price, issuer: q.issuer, at: Date.now() });
+      toast(`Paper buy: <b>${fmt(qty, 4)} ${s.ticker}</b> at $${fmt(q.price)} (${q.issuer}). Cash left $${fmt(p.cash)}.`, "ok", 6000);
+    } else {
+      const got = held.qty * q.price, pnl = got - held.cost;
+      p.cash += got; delete p.pos[s.ticker];
+      p.trades.unshift({ t: s.ticker, side, usd: got, qty: held.qty, price: q.price, issuer: q.issuer, at: Date.now() });
+      toast(`Paper sell: ${fmt(held.qty, 4)} ${s.ticker} for <b>$${fmt(got)}</b> (${pnl >= 0 ? "+" : "−"}$${fmt(Math.abs(pnl))}).`, "ok", 6000);
+    }
+    p.trades = p.trades.slice(0, 30); paper.save(p);
+    tg?.HapticFeedback?.notificationOccurred("success"); store.set("didTrade", "1");
+  } catch (e) { toast(e.message, "bad", 7000); }
+  renderTrade();
+}
 
 // ----- alerts -----
 async function renderAlerts() {
