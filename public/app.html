@@ -157,6 +157,10 @@
   .stepper button { width: 38px; height: 38px; background: var(--card2); color: var(--gold); font-size: 20px; font-weight: 800; }
   .stepper b { min-width: 74px; text-align: center; font-size: 15px; font-weight: 800; }
   .opts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .choose { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .pick { text-align: left; padding: 12px; border-radius: 14px; background: var(--card2); border: 1px solid var(--line2); display: flex; flex-direction: column; gap: 4px; }
+  .pick .ic { color: var(--gold); width: 22px; height: 22px; } .pick b { font-size: 14px; } .pick span { font-size: 11.5px; color: var(--muted); line-height: 1.35; }
+  .pick:active { border-color: var(--gold); }
   /* ticker tape */
   .tape { position: relative; overflow: hidden; margin: 12px -16px 0; padding: 9px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: rgba(255,255,255,.015); -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
   .tape .run { display: inline-flex; gap: 22px; white-space: nowrap; animation: tape 38s linear infinite; padding-left: 16px; }
@@ -630,6 +634,16 @@ function renderList() {
 async function loadSparks() { try { sparks = await fetch("/api/app/sparks").then((r) => r.json()); if (market) { renderList(); renderMovers(); } } catch {} }
 
 // ---------- me / club ----------
+async function mountLogin(el) {
+  const info = await fetch("/api/app/info").then((r) => r.json()).catch(() => ({}));
+  if (!info.bot || el.dataset.done) return; el.dataset.done = "1";
+  window.onTgAuth = (user) => { store.set("tglogin", JSON.stringify(user)); location.reload(); };
+  const sc = document.createElement("script");
+  sc.async = true; sc.src = "https://telegram.org/js/telegram-widget.js?22";
+  sc.setAttribute("data-telegram-login", info.bot); sc.setAttribute("data-size", "large"); sc.setAttribute("data-radius", "12");
+  sc.setAttribute("data-onauth", "onTgAuth(user)"); sc.setAttribute("data-request-access", "write");
+  el.appendChild(sc);
+}
 async function setupWebLogin() {
   if (inTG) return;
   const info = await fetch("/api/app/info").then((r) => r.json()).catch(() => ({}));
@@ -672,6 +686,17 @@ const clubHowTo = () => `<div class="flow" style="margin-top:10px">
   <div class="n">2</div><div class="muted" style="padding-top:4px">In the group, tap <b style="color:var(--fg)">Start a club here</b></div><div class="l"></div><div></div>
   <div class="n">3</div><div class="muted" style="padding-top:4px">Friends tap <b style="color:var(--fg)">Join the club</b>. Done.</div></div>
   <button class="btn" data-newclub style="margin-top:12px">${icon("users", "sm")}Create a club</button>`;
+const clubOrSolo = () => `<div class="muted" style="margin-top:4px">Decide together with friends in a Telegram group, or trade on your own. You can do both later.</div>
+  <div class="choose">
+    <button class="pick" data-newclub>${icon("users")}<b>Create a club</b><span>Friends vote, everyone buys in their own wallet</span></button>
+    <button class="pick" data-gosolo>${icon("wallet")}<b>Go solo</b><span>Buy and sell right away, no vote</span></button>
+  </div>`;
+document.addEventListener("click", (e) => {
+  if (!e.target.closest?.("[data-gosolo]")) return;
+  e.preventDefault(); haptic(); store.set("solo", "1");
+  toast("Solo it is. Your first trade: NVDA, Solo, Buy $1 now.", "ok");
+  if ($("ob").classList.contains("on")) renderChecklist(); else refreshStart();
+});
 document.addEventListener("click", (e) => {
   if (!e.target.closest?.("[data-newclub]")) return;
   e.preventDefault(); haptic();
@@ -1191,31 +1216,39 @@ function showOnboarding(i = 0) { buildSlides(); $("ob").classList.add("on"); go(
   st.addEventListener("touchstart", (e) => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
   st.addEventListener("touchend", (e) => { if (x0 == null) return; const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) { haptic(); go(slide + (dx < 0 ? 1 : -1)); } x0 = null; }, { passive: true });
 })();
+function startFirstTrade(withClub) {
+  haptic(); amount = 1; tmode = withClub ? "club" : "solo"; openStock("NVDA");
+  toast(withClub ? "Tap <b>Propose: buy $1 each</b> to start your first vote." : "Tap <b>Buy $1 now</b> to make your first trade.", "info", 7000);
+}
 async function getSteps() {
   const wallet = store.get("wallet") || me?.wallet;
   let p = null; if (wallet) { try { p = await api(`portfolio?wallet=${wallet}`); } catch {} }
-  const hasClub = !!me?.clubs?.length, did = store.get("didTrade") === "1";
-  return { wallet, p, hasClub, did, steps: [
+  const hasClub = !!me?.clubs?.length, did = store.get("didTrade") === "1", solo = store.get("solo") === "1";
+  const loginStep = inTG ? [] : [{ ok: !!me, i: "users", t: "Log in with Telegram", d: me ? `Logged in as <b style="color:var(--fg)">${me.user.name}</b>.` : `Your Telegram account is your Stock Club account. No password.<div id="obLogin" style="margin-top:10px"></div>` }];
+  return { wallet, p, hasClub, solo, did, steps: [...loginStep,
     { ok: !!wallet, i: "wallet", t: "Binance Wallet", d: wallet ? `Connected <code>${wallet.slice(0, 6)}…${wallet.slice(-4)}</code>` : `${newToBinance()}Already have it? In the Binance app open <b>Wallet</b> (keyless) and paste your BNB Smart Chain address:<input id="obW" placeholder="0x…" />` },
     { ok: p ? p.usdt >= 1 : false, i: "coins", t: "USDT on BNB Smart Chain", d: p ? `You have <b class="num" style="color:var(--fg)">$${fmt(p.usdt)}</b>.` + (p.usdt >= 1 ? "" : " Buy USDT in the Binance app and send it to your Binance Wallet on BNB Smart Chain.") : "The cash you buy stocks with. $5 is plenty to start." },
     { ok: p ? p.bnb >= 0.0003 : false, i: "fuel", t: "A little BNB for fees", d: p ? `You have <span class="num">${fmt(p.bnb, 5)}</span> BNB.` + (p.bnb >= 0.0003 ? " Enough for many trades." : " About $0.50 covers many trades (a few cents each).") : "Each trade costs a few cents in BNB." },
-    { ok: hasClub, i: "users", t: "Join a club", d: hasClub ? `You're in <b style="color:var(--fg)">${me.clubs.map((c) => c.name).join(", ")}</b>.` : clubHowTo() },
-    { ok: did, i: "zap", t: "Your first trade", d: hasClub ? "Try it with $1: propose NVDA, vote yes in the group, then tap Buy in your chat with me." : "After you join a club." },
+    { ok: hasClub || solo, i: "users", t: "Trade with a club, or solo", d: hasClub ? `You're in <b style="color:var(--fg)">${me.clubs.map((c) => c.name).join(", ")}</b>.`
+        : solo ? `You're trading <b style="color:var(--fg)">solo</b>. You can start a club anytime from the Club tab.` : clubOrSolo() },
+    { ok: did, i: "zap", t: "Your first trade", d: hasClub ? "Try it with $1: propose NVDA, vote yes in the group, then tap Buy in your chat with me."
+        : solo ? "Try it with $1: open NVDA, pick Solo, tap Buy $1 now." : "After you pick club or solo." },
   ] };
 }
 async function renderChecklist() {
-  const { wallet, hasClub, did, steps } = await getSteps();
+  const { wallet, hasClub, solo, did, steps } = await getSteps();
   const done = steps.filter((s) => s.ok).length;
   $("obCheck").innerHTML = `<span class="eyebrow">04 · Your setup</span><h1 style="margin-top:8px">Get <span class="goldtext">ready</span>.</h1>
     <div class="row" style="gap:10px;margin-top:6px"><div style="flex:1;height:6px;border-radius:4px;background:var(--card2);overflow:hidden"><div style="width:${done / steps.length * 100}%;height:100%;background:linear-gradient(90deg,#c58d07,#ffd34d)"></div></div><span class="muted num" style="font-weight:700">${done}/${steps.length}</span></div>
     <div class="card glow" style="margin-top:12px;padding:4px 14px">${steps.map((s) => `<div class="check"><div class="tick ${s.ok ? "ok" : ""}">${icon(s.i, "sm")}</div><div style="flex:1"><b>${s.t}</b><div class="muted">${s.d}</div></div></div>`).join("")}</div>`;
-  const first = hasClub && !did;
+  if (!inTG && !me && $("obLogin")) mountLogin($("obLogin"));
+  const first = (hasClub || solo) && !did;
   $("obNext").innerHTML = !wallet ? "Check my wallet" : first ? `${icon("zap", "sm")}Try my first $1 trade` : "Go to Markets";
   $("obNext").onclick = () => {
     haptic();
     if (!wallet) { const v = $("obW")?.value.trim(); if (/^0x[0-9a-fA-F]{40}$/.test(v)) { store.set("wallet", v); renderChecklist(); } else toast("Paste your wallet address (it starts with 0x).", "bad"); return; }
     finishOnboarding();
-    if (first) { amount = 1; openStock("NVDA"); toast("Tap <b>Propose: buy $1 each</b> to start your first vote.", "info", 7000); }
+    if (first) startFirstTrade(hasClub);
   };
   renderStart(done, steps.length);
 }
@@ -1223,13 +1256,14 @@ function finishOnboarding() { store.set("onboarded", "1"); $("ob").classList.rem
 $("obSkip").onclick = () => { haptic(); if (slide < SLIDES.length) go(SLIDES.length); else finishOnboarding(); };
 async function refreshStart() {
   if (store.get("onboarded") !== "1" || store.get("didTrade") === "1") return renderStart();
-  const { steps, hasClub } = await getSteps();
+  const { steps, hasClub, solo } = await getSteps();
   const done = steps.filter((x) => x.ok).length, next = steps.find((x) => !x.ok);
   $("stepIcons").innerHTML = steps.map((x, k) => `${k ? `<div class="bar ${steps[k - 1].ok && x.ok ? "ok" : ""}"></div>` : ""}<div class="si ${x.ok ? "ok" : x === next ? "next" : ""}">${icon(x.i, "sm")}</div>`).join("");
   const plain = (h) => h.replace(/<input[^>]*>/g, "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
   $("nextStep").innerHTML = next ? `${icon(next.i)}<div><b>Next: ${next.t}</b><div class="muted">${plain(next.d)}</div></div>` : "";
-  $("startBtn").innerHTML = next?.i === "zap" && hasClub ? `${icon("zap", "sm")}Try my first $1 trade` : `Continue ${icon("next", "sm")}`;
-  $("startBtn").onclick = next?.i === "zap" && hasClub ? () => { haptic(); amount = 1; openStock("NVDA"); toast("Tap <b>Propose: buy $1 each</b> to start your first vote.", "info", 7000); } : () => showOnboarding(SLIDES.length);
+  const firstTrade = next?.i === "zap" && (hasClub || solo);
+  $("startBtn").innerHTML = firstTrade ? `${icon("zap", "sm")}Try my first $1 trade` : `Continue ${icon("next", "sm")}`;
+  $("startBtn").onclick = firstTrade ? () => startFirstTrade(hasClub) : () => showOnboarding(SLIDES.length);
   renderStart(done, steps.length);
 }
 function renderStart(done, total) {
