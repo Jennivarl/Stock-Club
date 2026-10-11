@@ -27,7 +27,7 @@ Stock Club shows the gap for every stock, and lets a group of friends **decide t
   - **Tap to buy/sell:** the bot sends each yes-voter a button; they confirm in their own Binance Wallet (WalletConnect).
   - **Autopilot:** the bot buys or sells automatically from the member's own **Binance Agentic Wallet**, within the spending limit they set in the Binance app.
 - **Alerts:** "tell us when NVDA's gap goes over 1%" or "when TSLA goes above $400". The bot posts in the group when it happens.
-- **AI analyst:** `/ai` (or *Ask the AI analyst* in the app). It reads live data for the club's stocks (on-chain price, gap vs the real stock, RSI, moving averages, 7/30-day trend, P/E, next earnings, news headlines) and decides **buy** (one stock, one amount) or **hold**, with its reasons. A buy becomes a normal club vote with the same rule and market checks; the AI never trades by itself. `/ai on` lets it check every 6 hours; every buy call is scored 24 h later (`/ai track` shows its record).
+- **AI analyst:** tap **🧠 Ask the AI analyst** (in the club group, in the private chat with the bot, or in the app's Club tab), or send `/ai`. It reads live data for the club's stocks (on-chain price, gap vs the real stock, RSI, moving averages, 7/30-day trend, P/E, next earnings, news headlines) and decides **buy** (one stock, one amount) or **hold**, with its reasons. A buy becomes a normal club vote with the same rule and market checks; the AI never trades by itself. `/ai on` lets it check every 6 hours; every buy call is scored 24 h later (`/ai track` shows its record).
 
 **In the Mini App (Telegram) and on the website**
 - **Markets:** live on-chain prices for tracked stocks, % change, the **gap vs the real stock**, a Wall Street open/closed status with a countdown, and top movers.
@@ -70,8 +70,9 @@ Real stock prices come from **Finnhub** (free plan). Wallet connection uses **Wa
 3. **Propose a trade:** in the group tap **Propose a buy**, open a stock (e.g. NVDA), pick $1, and tap **Propose: buy $1 each**. Vote **Yes** in the poll.
 4. When the vote passes, the bot sends you a **Buy** button. Connect your **Binance Wallet** and confirm. The result is posted in the group with a BscScan link.
 5. **Optional, Autopilot:** in the app's **Club** tab tap **Connect Agentic Wallet** and approve in the Binance app. Next time your club votes yes, the bot buys for you automatically.
-6. **Solo:** on any stock page, switch **Trade** to **Solo** and tap **Buy $1 now**.
-7. **Website:** open **[stockclubhq.xyz](https://stockclubhq.xyz)** and **Log in with Telegram**.
+6. **AI analyst:** in the group tap **🧠 Ask the AI analyst** (or send `/ai`). In about a minute it posts its call: a buy proposal with its reasons (your club votes on it like any other) or hold. Tap **/ai on** to let it check every 6 hours.
+7. **Solo:** on any stock page, switch **Trade** to **Solo** and tap **Buy $1 now**.
+8. **Website:** open **[stockclubhq.xyz](https://stockclubhq.xyz)** and **Log in with Telegram**.
 
 Useful group commands: `/propose NVDA 10`, `/propose sell NVDA`, `/ai`, `/ai on`, `/ai track`, `/alert NVDA gap 1`, `/alerts`, `/rules`, `/price NVDA`, `/stop` (pause the club).
 
