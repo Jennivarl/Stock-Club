@@ -403,13 +403,14 @@
   <div class="card" id="earnCard" style="display:none"><div class="row" style="gap:12px"><div class="cal"><small id="eMon"></small><b id="eDay"></b></div>
     <div><div class="muted" style="font-weight:700">Next earnings</div><b id="eWhen"></b><div class="muted" id="eEps"></div></div></div></div>
 
-  <h2>Trade with your club</h2>
+  <div class="row between" style="margin:22px 2px 10px"><h2 style="margin:0">Trade</h2>
+    <div class="seg" id="tmode"><button data-t="club" class="on">With club</button><button data-t="solo">Solo</button></div></div>
   <div class="card glow" id="tradeCard">
-    <div class="row" style="gap:8px"><svg class="ic sm gold"><use href="#i-users"/></svg><span class="muted" id="tradeClub"></span></div>
+    <div class="row" style="gap:8px"><svg class="ic sm gold"><use href="#i-users" id="tradeIcon"/></svg><span class="muted" id="tradeClub"></span></div>
     <div class="chips" id="amounts" style="margin:12px 0 2px"></div>
     <button class="btn buy" id="pBuy"></button>
     <button class="btn sell" id="pSell">Propose: sell</button>
-    <div class="muted" style="margin-top:10px">Starts a vote in your group. If it passes, everyone who voted yes trades in their own wallet.</div>
+    <div class="muted" style="margin-top:10px" id="tradeNote"></div>
   </div>
 
   <h2 id="alertsH">Alerts for your club</h2>
@@ -749,21 +750,29 @@ async function openStock(t) {
   drawCharts(); loadNews(t); loadDepth(t);
 }
 const setSeg = (sel, key, v) => document.querySelectorAll(`${sel} button`).forEach((x) => x.classList.toggle("on", x.dataset[key] === v));
+let tmode = null; // "club" | "solo"
+document.querySelectorAll("#tmode button").forEach((b) => b.onclick = () => { tmode = b.dataset.t; haptic(); renderTrade(); });
 function renderTrade() {
   const club = me?.clubs?.[0], s = current;
-  $("tradeClub").textContent = club ? `${club.name} · max $${club.rules.max_per_trade} per trade` : "Join or start a club to trade together.";
-  const max = club?.rules.max_per_trade ?? 20;
-  const opts = [1, 5, 10, 20, 50].filter((a) => a <= max); if (!opts.includes(amount)) amount = opts.at(-1) ?? 1;
+  tmode ??= club ? "club" : "solo";
+  setSeg("#tmode", "t", tmode);
+  const solo = tmode === "solo";
+  $("tradeIcon").setAttribute("href", solo ? "#i-wallet" : "#i-users");
+  $("tradeClub").textContent = solo ? "Solo · trades right away in your own wallet" : club ? `${club.name} · max $${club.rules.max_per_trade} per trade` : "Join or start a club to trade together, or switch to Solo.";
+  $("tradeNote").textContent = solo ? "No vote. Same safety check: if the on-chain price is too far from the real one, Stock Club won't trade." : "Starts a vote in your group. If it passes, everyone who voted yes trades in their own wallet.";
+  const max = solo ? 1000 : club?.rules.max_per_trade ?? 20;
+  const opts = (solo ? [1, 5, 10, 25, 50, 100] : [1, 5, 10, 20, 50]).filter((a) => a <= max); if (!opts.includes(amount)) amount = opts.includes(10) ? 10 : opts.at(-1) ?? 1;
   $("amounts").innerHTML = opts.map((a) => `<button class="chip num ${a === amount ? "on" : ""}" data-a="${a}">$${a}</button>`).join("");
   document.querySelectorAll("#amounts .chip").forEach((c) => c.onclick = () => { amount = Number(c.dataset.a); haptic(); renderTrade(); });
-  $("pBuy").innerHTML = `${icon("vote")}Propose: buy $${amount} each`;
-  $("pSell").innerHTML = `${icon("vote")}Propose: sell`;
-  $("pBuy").disabled = $("pSell").disabled = !club || !s.tradable;
+  $("pBuy").innerHTML = solo ? `${icon("zap")}Buy $${amount} now` : `${icon("vote")}Propose: buy $${amount} each`;
+  $("pSell").innerHTML = solo ? `${icon("zap")}Sell all my ${s.ticker} now` : `${icon("vote")}Propose: sell`;
+  $("pBuy").disabled = $("pSell").disabled = !s.tradable || (!solo && !club);
 }
 function closeSheet() { if ($("sheet").classList.contains("on")) $("sheet").classList.remove("on"); else $("allSheet").classList.remove("on"); if (!$("sheet").classList.contains("on") && !$("allSheet").classList.contains("on")) tg?.BackButton?.hide(); }
 $("back").onclick = closeSheet; $("allBack").onclick = closeSheet; tg?.BackButton?.onClick(closeSheet);
 
 async function propose(side) {
+  if (tmode === "solo") return soloTrade(side);
   const club = me?.clubs?.[0]; if (!club || !current) return;
   const btn = side === "sell" ? $("pSell") : $("pBuy"); btn.disabled = true;
   try {
@@ -773,6 +782,12 @@ async function propose(side) {
     store.set("didTrade", "1");
   } catch (e) { toast(e.message, "bad", 7000); }
   btn.disabled = false;
+}
+// Solo: no vote; the server runs the same checks and opens the same Buy/Sell page.
+async function soloTrade(side) {
+  const btn = side === "sell" ? $("pSell") : $("pBuy"); btn.disabled = true; haptic();
+  try { const r = await api("solo", { ticker: current.ticker, amount, side }); store.set("didTrade", "1"); location.href = r.url; }
+  catch (e) { toast(e.message, "bad", 7000); btn.disabled = false; }
 }
 $("pBuy").onclick = () => propose("buy"); $("pSell").onclick = () => propose("sell");
 

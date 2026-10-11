@@ -153,8 +153,8 @@ function doneScreen(o) {
   $("doneIcon").textContent = ok ? "✅" : wait ? "⏳" : "❌";
   $("doneTitle").textContent = ok ? (sell ? `You sold your ${o.ticker} for ${Number(o.qty ?? 0).toFixed(2)} USDT` : `You bought ${Number(o.qty ?? 0).toFixed(6)} ${o.ticker}`)
     : wait ? "Sent, waiting for the chain" : `The ${sell ? "sale" : "buy"} didn't go through`;
-  $("doneText").textContent = ok ? `${sell ? "In" : `For $${o.amount}, in`} your own wallet. We posted it in your club chat.`
-    : wait ? "We'll post the result in your club chat." : (o.error ?? "Nothing happened.");
+  $("doneText").textContent = ok ? `${sell ? "In" : `For $${o.amount}, in`} your own wallet. ${o.solo ?? order?.solo ? "I sent you the receipt in our chat." : "We posted it in your club chat."}`
+    : wait ? (order?.solo ? "I'll message you the result." : "We'll post the result in your club chat.") : (o.error ?? "Nothing happened.");
   show("doneLink", !!o.txHash); if (o.txHash) $("doneLink").href = `https://bscscan.com/tx/${o.txHash}`;
   if (ok) tg?.HapticFeedback?.notificationOccurred("success");
 }
@@ -167,12 +167,12 @@ async function load() {
     sell = order.side === "sell";
     if (sell) {
       $("title").textContent = `Sell your ${order.ticker}`;
-      $("summary").textContent = `Your club voted yes. This sells all your ${order.ticker} for USDT, in your own wallet.`;
+      $("summary").textContent = `${order.solo ? "Solo trade." : "Your club voted yes."} This sells all your ${order.ticker} for USDT, in your own wallet.`;
       $("s-allow").lastChild.textContent = `Allow ${order.ticker} for this sale`;
       $("s-buy").lastChild.textContent = "Confirm the sale";
     } else {
       $("title").textContent = `Buy $${order.amount} of ${order.ticker}`;
-      $("summary").textContent = `Your club voted yes. This buys it with USDT (${order.platform === "bstock" ? "bStocks" : "Ondo"}), in your own wallet.`;
+      $("summary").textContent = `${order.solo ? "Solo trade." : "Your club voted yes."} This buys it with USDT (${order.platform === "bstock" ? "bStocks" : "Ondo"}), in your own wallet.`;
     }
     if (order.status === "expired") { step("connect", "fail"); return screen(`This ${sell ? "Sell" : "Buy"} link has expired.`, `${sell ? "Sell" : "Buy"} links last 2 hours after the vote. Start a new vote in the group.`); }
     if (order.status !== "pending") return doneScreen(order);

@@ -5,8 +5,9 @@ import fs from "node:fs";
 import path from "node:path";
 import type http from "node:http";
 import type { Api } from "grammy";
-import { clubsOf, db, getClub, getMember, getMembers, getRules, setAutopilot } from "./db.js";
-import { startProposal } from "./proposals.js";
+import { clubsOf, createTapOrder, db, getClub, getMember, getMembers, getRules, setAutopilot, soloDesk } from "./db.js";
+import { checkMarket, pickIssuer, startProposal } from "./proposals.js";
+import { priceCard, type Card } from "./card.js";
 import { candles, impact, news, stockDetail, universe } from "./tools.js";
 import { activeAlerts, addAlert, describe } from "./alerts.js";
 import { autopilotAvailable, isConnected, startSignin, waitForSignin, walletInfo } from "./autopilot.js";
@@ -257,6 +258,26 @@ export async function handleApp(api: Api, req: http.IncomingMessage, url: URL, s
     const club = getClub(Number(url.searchParams.get("chatId")));
     if (!club || !getMember(club.id, user.id)) { send(403, { error: "You're not a member of that club." }); return true; }
     send(200, activeAlerts(club.id).map((a) => ({ id: a.id, ticker: a.ticker, text: describe(a), by: a.creator_name }))); return true;
+  }
+  // Solo: buy or sell right away, no vote. Same safety checks (gap vs real price) and the same Buy/Sell page.
+  if (req.method === "POST" && url.pathname === "/api/app/solo") {
+    const { ticker, amount, side } = await readJson();
+    const t = String(ticker ?? "").toUpperCase().replace(/[^A-Z.]/g, "");
+    const sd: "buy" | "sell" = side === "sell" ? "sell" : "buy";
+    const usd = sd === "sell" ? 0 : Number(amount);
+    if (sd === "buy" && (!Number.isFinite(usd) || usd < 1 || usd > 1000)) { send(422, { error: "Pick an amount from $1 to $1,000." }); return true; }
+    const { club, member } = soloDesk(user.id, user.first_name ?? user.username ?? "Trader");
+    let card: Card;
+    try { card = await priceCard(t); } catch { send(502, { error: "Couldn't get prices from Binance right now. Try again in a minute." }); return true; }
+    const marketNo = checkMarket(card, getRules(club.id), usd, sd);
+    if (marketNo) { send(422, { error: marketNo.replace(/<[^>]+>/g, "") }); return true; }
+    const best = pickIssuer(card, usd, sd)!;
+    const pr = db.prepare("INSERT INTO proposals (club_id, proposer_id, ticker, amount_usd, closes_at, side, status, platform, token_address) VALUES (?, ?, ?, ?, ?, ?, 'solo', ?, ?)")
+      .run(club.id, member.id, t, usd, new Date().toISOString(), sd, best.platformId, best.tokenContractAddress);
+    const tapToken = crypto.randomBytes(18).toString("base64url");
+    createTapOrder(Number(pr.lastInsertRowid), member.id, usd, tapToken);
+    send(200, { url: `/buy?t=${tapToken}` });
+    return true;
   }
   if (req.method === "POST" && url.pathname === "/api/app/propose") {
     const { chatId, ticker, amount, side } = await readJson();

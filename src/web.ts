@@ -61,7 +61,7 @@ export function startWeb(api: Api) {
       if (req.method === "GET" && url.pathname === "/api/order") {
         return send(res, 200, {
           ticker: order!.ticker, amount: order!.amount_usd, status: order!.status, name: order!.member_name,
-          token: order!.token_address, platform: order!.platform, txHash: order!.tx_hash, qty: order!.qty, error: order!.error, side: order!.side,
+          token: order!.token_address, platform: order!.platform, txHash: order!.tx_hash, qty: order!.qty, error: order!.error, side: order!.side, solo: order!.proposal_status === "solo",
         });
       }
 

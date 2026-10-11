@@ -169,7 +169,8 @@ export function setAutopilot(telegramUserId: number, on: boolean) {
 }
 
 export function clubsOf(telegramUserId: number): Club[] {
-  return db.prepare("SELECT c.* FROM clubs c JOIN members m ON m.club_id = c.id WHERE m.telegram_user_id = ?").all(telegramUserId) as Club[];
+  // Group chats have negative ids. A positive id is someone's private "solo desk" (see soloDesk), not a club.
+  return db.prepare("SELECT c.* FROM clubs c JOIN members m ON m.club_id = c.id WHERE m.telegram_user_id = ? AND c.telegram_chat_id < 0").all(telegramUserId) as Club[];
 }
 
 export function createOrder(proposalId: number, memberId: number, mode: "tap" | "autopilot", amount: number): number {
@@ -179,7 +180,7 @@ export function createOrder(proposalId: number, memberId: number, mode: "tap" | 
 
 export type TapOrder = {
   id: number; proposal_id: number; member_id: number; amount_usd: number; status: string; tx_hash: string | null;
-  qty: string | null; error: string | null; tap_token: string; side: "buy" | "sell"; wallet_address: string | null; ticker: string; token_address: string; platform: string;
+  qty: string | null; error: string | null; tap_token: string; side: "buy" | "sell"; proposal_status: string; wallet_address: string | null; ticker: string; token_address: string; platform: string;
   member_name: string; telegram_user_id: number; telegram_chat_id: number; created_at: string;
 };
 
@@ -191,7 +192,7 @@ export function createTapOrder(proposalId: number, memberId: number, amount: num
 
 export function getTapOrder(token: string): TapOrder | undefined {
   return db.prepare(`
-    SELECT o.*, p.ticker, p.token_address, p.platform, p.side, m.name AS member_name, m.telegram_user_id, c.telegram_chat_id
+    SELECT o.*, p.ticker, p.token_address, p.platform, p.side, p.status AS proposal_status, m.name AS member_name, m.telegram_user_id, c.telegram_chat_id
     FROM orders o JOIN proposals p ON p.id = o.proposal_id JOIN members m ON m.id = o.member_id JOIN clubs c ON c.id = p.club_id
     WHERE o.tap_token = ? AND o.mode = 'tap'`).get(token) as TapOrder | undefined;
 }
@@ -213,4 +214,11 @@ export function finishOrder(
   db.prepare(
     "UPDATE orders SET status = ?, tx_hash = ?, error = ?, returned_order_id = ?, real_order_id = ?, qty = ? WHERE id = ?",
   ).run(f.status, f.txHash ?? null, f.error ?? null, f.returnedOrderId ?? null, f.realOrderId ?? null, f.qty ?? null, orderId);
+}
+
+// Solo trading: a private "desk" per user, stored like a club tied to their private chat with the bot
+// (chat id = user id), so solo buys/sells reuse the same tested order path and results arrive by DM.
+export function soloDesk(userId: number, userName: string): { club: Club; member: Member } {
+  const club = getClub(userId) ?? createClub(userId, `${userName} · solo`, userId, userName);
+  return { club, member: getMember(club.id, userId)! };
 }
