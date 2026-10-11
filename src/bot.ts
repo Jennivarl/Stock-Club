@@ -74,7 +74,8 @@ const WELCOME_POINTS =
   "• Live prices, candle charts, news and the <b>weekend gap</b> for 448 stocks\n" +
   "• Propose a trade, the group votes, <b>everyone buys in their own wallet</b>\n" +
   "• <b>Autopilot</b> buys for you with a Binance Agentic Wallet\n" +
-  "• Alerts the moment an on-chain price drifts from Wall Street";
+  "• Alerts the moment an on-chain price drifts from Wall Street\n" +
+  "• <b>AI analyst</b> reads the market and proposes a trade (or says hold); your club still votes";
 async function welcomePrivate(ctx: Context) {
   const me = await ctx.api.getMe();
   await sendBanner(ctx.api, ctx.chat!.id,
@@ -83,13 +84,14 @@ async function welcomePrivate(ctx: Context) {
       [{ text: "📈 Open Stock Club", web_app: { url: `${WEB_URL}/app` } }],
       [{ text: "👥 Add me to a group", url: `https://t.me/${me.username}?startgroup=club` }],
       [{ text: "🧭 How it works", web_app: { url: `${WEB_URL}/app?intro=1` } }, { text: "🤖 Autopilot", callback_data: "autopilot" }],
+      [{ text: "🧠 Ask the AI analyst", callback_data: "ai" }],
     ]);
   // Quick menu under the message box (Web App buttons here only work in private chats).
   await ctx.reply("Quick menu is below 👇  Or type /help for every command.", {
     reply_markup: {
       keyboard: [
         [{ text: "📈 Markets", web_app: { url: `${WEB_URL}/app` } }, { text: "💼 Portfolio", web_app: { url: `${WEB_URL}/app?tab=port` } }],
-        [{ text: "🔔 My alerts" }, { text: "❓ Help" }],
+        [{ text: "🔔 My alerts" }, { text: "🧠 AI analyst" }, { text: "❓ Help" }],
       ],
       resize_keyboard: true, is_persistent: true,
     },
@@ -101,7 +103,7 @@ async function clubKeyboard(api: Api) {
     [{ text: "✅ Join the club", callback_data: "join" }],
     [{ text: "🗳 Propose a buy", url: await appLink(api, "propose") }, { text: "💸 Propose a sell", url: await appLink(api, "propose") }],
     [{ text: "🔔 Set an alert", url: await appLink(api, "propose") }, { text: "⚙️ Club & rules", url: await appLink(api, "club") }],
-    [{ text: "📈 Open Stock Club", url: await appLink(api) }],
+    [{ text: "🧠 Ask the AI analyst", callback_data: "ai" }, { text: "📈 Open Stock Club", url: await appLink(api) }],
   ];
 }
 // Adding the bot via "Create a club" sends two updates (bot added + /start), so welcome a chat once a minute at most.
@@ -160,6 +162,27 @@ bot.callbackQuery("autopilot", async (ctx) => {
   await ctx.answerCallbackQuery();
   await ctx.reply("🤖 <b>Autopilot</b> buys for you automatically when your club's vote passes, using your own Binance Agentic Wallet. You set the limits; Stock Club never holds your money.\n\nTurn it on: /autopilot", { parse_mode: "HTML" });
 });
+// "Ask the AI analyst": in a club group it runs for that club; in a private chat, for one of the user's clubs.
+async function askAI(ctx: Context, chatId?: number) {
+  const fromGroup = isGroup(ctx);
+  const club = fromGroup ? getClub(ctx.chat!.id) : chatId ? getClub(chatId) : undefined;
+  if (!fromGroup && !club) {
+    const clubs = clubsOf(ctx.from!.id);
+    if (!clubs.length) return ctx.reply("🧠 The AI analyst works for a club: it reads the market and proposes a trade in your group, and the club votes. Add me to a group and tap Start a club here first.");
+    if (clubs.length > 1) return ctx.reply("🧠 Which club should the AI analyst work for?", { reply_markup: { inline_keyboard: clubs.map((c) => [{ text: c.name, callback_data: `ai:${c.telegram_chat_id}` }]) } });
+    return askAI(ctx, clubs[0].telegram_chat_id);
+  }
+  if (!club) return ctx.reply("No club here yet. Tap Start a club here first.");
+  const member = getMember(club.id, ctx.from!.id);
+  if (!member) return ctx.reply("Only club members can ask the AI analyst. Tap Join the club first.");
+  if (!aiAvailable()) return ctx.reply("The AI analyst isn't set up on this server.");
+  if (!fromGroup) await ctx.reply(`🧠 Asked the AI analyst for <b>${esc(club.name)}</b>. Its call appears in the group in about a minute.`, { parse_mode: "HTML" });
+  const err = await runAnalyst(ctx.api, club, member);
+  if (err) await ctx.reply(err);
+}
+bot.callbackQuery("ai", async (ctx) => { await ctx.answerCallbackQuery({ text: "🧠 The AI analyst is reading the market…" }); await askAI(ctx); });
+bot.callbackQuery(/^ai:(-?\d+)$/, async (ctx) => { await ctx.answerCallbackQuery(); await askAI(ctx, Number(ctx.match[1])); });
+bot.hears("🧠 AI analyst", (ctx) => askAI(ctx));
 bot.hears("🔔 My alerts", async (ctx) => {
   const clubs = clubsOf(ctx.from!.id);
   if (!clubs.length) return ctx.reply("You're not in a club yet. Add me to a group and tap Start a club here.");
@@ -430,7 +453,8 @@ bot.command("resume", async (ctx) => {
 // AI analyst: "/ai" runs it now; "/ai on|off" = every 6 hours by itself; "/ai track" = how its calls did.
 bot.command("ai", async (ctx) => {
   const club = isGroup(ctx) ? getClub(ctx.chat!.id) : undefined;
-  if (!club) return ctx.reply("Run /ai inside your club's group.");
+  if (!isGroup(ctx)) return askAI(ctx);
+  if (!club) return ctx.reply("No club here yet. Tap Start a club here first.");
   const member = getMember(club.id, ctx.from!.id);
   if (!member) return ctx.reply("Only members can ask the AI analyst. Tap /join first.");
   if (!aiAvailable()) return ctx.reply("The AI analyst isn't set up on this server.");
