@@ -583,6 +583,7 @@ async function loadSparks() { try { sparks = await fetch("/api/app/sparks").then
 // ---------- me / club ----------
 async function loadMe() {
   try { me = await api("me"); } catch { me = null; }
+  if (me?.reset) { for (const k of ["onboarded", "wallet", "didTrade"]) store.set(k, ""); showOnboarding(0); }
   if (me) $("hello").textContent = `Hi ${me.user.name}`;
   renderClubs(); renderStart();
 }
@@ -672,8 +673,7 @@ function showPairing(p) {
       <div class="n">2</div><div class="muted" style="padding-top:4px">If asked, create the Agentic Wallet and tick <b style="color:var(--fg)">Secure Auto Sign</b></div><div class="l"></div><div></div>
       <div class="n">3</div><div class="muted" style="padding-top:4px">Come back here. This page updates by itself.</div>
     </div>
-    <div class="muted" style="margin-top:10px;font-size:12px;text-align:center"><span class="spin"></span>Waiting for your approval · the login request comes from our server in Frankfurt, that's expected</div>
-    <div style="margin-top:12px">${newToBinance()}</div>`;
+    <div class="muted" style="margin-top:10px;font-size:12px;text-align:center"><span class="spin"></span>Waiting for your approval · the login request comes from our server in Frankfurt, that's expected</div>`;
   $("apOpen").onclick = () => { haptic(); tg?.openLink ? tg.openLink(p.url) : window.open(p.url, "_blank"); };
   clearInterval(apPoll);
   apPoll = setInterval(async () => { const a = await api("autopilot").catch(() => null); if (a && (a.connected || !a.pending)) { clearInterval(apPoll); if (a.connected) { tg?.HapticFeedback?.notificationOccurred("success"); toast("Agentic Wallet connected. Autopilot is ON.", "ok"); } loadAutopilot(); loadMe(); } }, 3000);

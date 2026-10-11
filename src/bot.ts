@@ -10,6 +10,7 @@ import {
   WEB_URL,
 } from "./proposals.js";
 import { startWeb } from "./web.js";
+import { freshStart } from "./appapi.js";
 import { activeAlerts, addAlert, checkAlerts, describe, removeAlert } from "./alerts.js";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -359,6 +360,17 @@ bot.on("poll_answer", async (ctx) => {
     const { telegram_chat_id } = db.prepare("SELECT telegram_chat_id FROM clubs WHERE id = ?").get(p.club_id) as { telegram_chat_id: number };
     await closeProposal(ctx.api, p, telegram_chat_id);
   }
+});
+
+// Start over like a brand-new user (for demos and testing): sign out of the Agentic Wallet, Autopilot off,
+// and the app forgets this user's setup on its next open. Club membership stays.
+bot.command("resetapp", async (ctx) => {
+  if (ctx.chat?.type !== "private") return ctx.reply("Send /resetapp to me in a private chat.");
+  const uid = ctx.from!.id;
+  setAutopilot(uid, false);
+  if (autopilotAvailable()) await signout(uid).catch(() => {});
+  freshStart.add(uid);
+  await ctx.reply("🔄 Done. You're signed out of your Agentic Wallet and Autopilot is off.\n\nClose the app if it's open, then open it again: you'll see it like a brand-new user (intro, setup checklist, connect steps). Your club stays.");
 });
 
 bot.command("alert", async (ctx) => {

@@ -137,6 +137,9 @@ async function portfolio(wallet: string) {
 }
 
 let botName: string | undefined;
+// /resetapp in the bot: next app open starts like a brand-new user (intro, checklist, no remembered wallet).
+export const freshStart = new Set<number>();
+const forgetWallet = new Set<number>();
 const signins = new Map<number, { url: string; code: string; at: number; status: "waiting" | "ok" | "failed"; error?: string }>();
 const isAddr = (s: unknown): s is string => typeof s === "string" && /^0x[0-9a-fA-F]{40}$/.test(s);
 
@@ -186,11 +189,14 @@ export async function handleApp(api: Api, req: http.IncomingMessage, url: URL, s
       return { chatId: c.telegram_chat_id, name: c.name, members: getMembers(c.id).length, autopilot: Boolean(m?.autopilot_on), rules: getRules(c.id) };
     });
     botName ??= (await api.getMe()).username;
-    send(200, { user: { id: user.id, name: user.first_name ?? user.username ?? "you" }, bot: botName, clubs, wallet: lastWallet(user.id) ?? null });
+    const reset = freshStart.delete(user.id); // /resetapp: the app forgets this user once
+    if (reset) forgetWallet.add(user.id);
+    send(200, { user: { id: user.id, name: user.first_name ?? user.username ?? "you" }, bot: botName, clubs, wallet: forgetWallet.has(user.id) ? null : lastWallet(user.id) ?? null, reset });
     return true;
   }
   if (req.method === "GET" && url.pathname === "/api/app/portfolio") {
-    const w = url.searchParams.get("wallet") || lastWallet(user.id);
+    if (url.searchParams.get("wallet")) forgetWallet.delete(user.id);
+    const w = url.searchParams.get("wallet") || (forgetWallet.has(user.id) ? null : lastWallet(user.id));
     if (!isAddr(w)) { send(200, { wallet: null }); return true; }
     send(200, await portfolio(w)); return true;
   }
