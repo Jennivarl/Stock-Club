@@ -646,10 +646,19 @@ const newToBinance = () => `<details class="newbn"><summary>${icon("info", "sm")
     <div class="n">5</div><div class="muted" style="padding-top:4px"><b style="color:var(--fg)">Optional, Autopilot:</b> in the Club tab tap Connect Agentic Wallet. Binance creates the Agentic Wallet for you during that step.</div>
   </div></details>`;
 document.addEventListener("click", (e) => { const a = e.target.closest?.("[data-open]"); if (!a) return; e.preventDefault(); const u = a.dataset.open; tg?.openLink ? tg.openLink(u) : window.open(u, "_blank"); });
-const clubHowTo = () => `<div class="flow" style="margin-top:8px">
-  <div class="n">1</div><div class="muted" style="padding-top:4px">Make a Telegram group with your friends</div><div class="l"></div><div></div>
-  <div class="n">2</div><div class="muted" style="padding-top:4px">Add <b style="color:var(--fg)">@${me?.bot ?? "the Stock Club bot"}</b> to the group</div><div class="l"></div><div></div>
-  <div class="n">3</div><div class="muted" style="padding-top:4px">Send <code>/club start</code>, then friends send <code>/join</code></div></div>`;
+// New club: Telegram's own "pick a group or create one" screen (t.me/<bot>?startgroup=...). When the bot
+// joins, it posts the banner with a one-tap "Start a club here" button.
+const clubHowTo = () => `<div class="flow" style="margin-top:10px">
+  <div class="n">1</div><div class="muted" style="padding-top:4px"><b style="color:var(--fg)">Create a club:</b> pick a Telegram group with your friends, or make a new one</div><div class="l"></div><div></div>
+  <div class="n">2</div><div class="muted" style="padding-top:4px">In the group, tap <b style="color:var(--fg)">Start a club here</b></div><div class="l"></div><div></div>
+  <div class="n">3</div><div class="muted" style="padding-top:4px">Friends tap <b style="color:var(--fg)">Join the club</b>. Done.</div></div>
+  <button class="btn" data-newclub style="margin-top:12px">${icon("users", "sm")}Create a club</button>`;
+document.addEventListener("click", (e) => {
+  if (!e.target.closest?.("[data-newclub]")) return;
+  e.preventDefault(); haptic();
+  const u = `https://t.me/${me?.bot ?? "stockclubhqbot"}?startgroup=club`;
+  if (tg?.openTelegramLink && inTG) tg.openTelegramLink(u); else window.open(u, "_blank");
+});
 function renderClubs() {
   if (!me) { $("clubs").innerHTML = `<div class="card muted">${inTG ? "Open this app from Telegram to see your clubs." : "Log in with Telegram (on Markets) to see your clubs."}</div>`; return; }
   if (!me.clubs.length) { $("clubs").innerHTML = `<div class="card"><h3>No club yet</h3>${clubHowTo()}</div>`; return; }
