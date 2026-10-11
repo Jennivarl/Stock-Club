@@ -169,7 +169,11 @@ export async function handleApp(api: Api, req: http.IncomingMessage, url: URL, s
     res.writeHead(200, { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" });
     res.end(buf); return true;
   }
-  if (req.method === "GET" && url.pathname === "/api/app/info") { botName ??= (await api.getMe()).username; send(200, { bot: botName }); return true; }
+  if (req.method === "GET" && url.pathname === "/api/app/info") {
+    botName ??= (await api.getMe()).username;
+    // The bot's numeric id is public (it's the part of the token before ":"); Telegram's login needs it.
+    send(200, { bot: botName, botId: Number(String(process.env.TELEGRAM_BOT_TOKEN ?? "").split(":")[0]) || null }); return true;
+  }
   if (req.method === "GET" && url.pathname === "/api/app/stocks") { send(200, await stocks()); return true; }
   if (req.method === "GET" && url.pathname === "/api/app/chart") {
     const t = String(url.searchParams.get("ticker") ?? "").toUpperCase();
