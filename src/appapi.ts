@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type http from "node:http";
 import type { Api } from "grammy";
-import { clubsOf, createTapOrder, db, getClub, getMember, getMembers, getRules, setAutopilot, soloDesk } from "./db.js";
+import { clubsOf, createTapOrder, db, getClub, getMember, getMembers, getRules, setAutopilot, setRule, soloDesk } from "./db.js";
 import { checkMarket, pickIssuer, startProposal } from "./proposals.js";
 import { priceCard, type Card } from "./card.js";
 import { candles, impact, news, stockDetail, universe } from "./tools.js";
@@ -203,7 +203,7 @@ export async function handleApp(api: Api, req: http.IncomingMessage, url: URL, s
   if (req.method === "GET" && url.pathname === "/api/app/me") {
     const clubs = clubsOf(user.id).map((c) => {
       const m = getMember(c.id, user.id);
-      return { chatId: c.telegram_chat_id, name: c.name, members: getMembers(c.id).length, autopilot: Boolean(m?.autopilot_on), rules: getRules(c.id) };
+      return { chatId: c.telegram_chat_id, name: c.name, isCreator: c.created_by === user.id, members: getMembers(c.id).length, autopilot: Boolean(m?.autopilot_on), rules: getRules(c.id) };
     });
     botName ??= (await api.getMe()).username;
     const reset = freshStart.delete(user.id); // /resetapp: the app forgets this user once
@@ -217,6 +217,36 @@ export async function handleApp(api: Api, req: http.IncomingMessage, url: URL, s
     if (!isAddr(w)) { send(200, { wallet: null }); return true; }
     send(200, await portfolio(w)); return true;
   }
+  // Edit the club's rules (creator only, like /rules set). The bot posts what changed in the group.
+  if (req.method === "POST" && url.pathname === "/api/app/rules") {
+    const { chatId, changes } = await readJson();
+    const club = getClub(Number(chatId));
+    if (!club || !getMember(club.id, user.id)) { send(403, { error: "You're not a member of that club." }); return true; }
+    if (club.created_by !== user.id) { send(403, { error: "Only the club creator can change the rules." }); return true; }
+    const LIMITS: Record<string, [number, number, string, (v: number) => string]> = {
+      max_per_trade: [1, 1000, "Max per trade", (v) => `$${v}`], max_per_week: [1, 5000, "Max per week", (v) => `$${v}`],
+      vote_pass_percent: [50, 100, "Vote passes at", (v) => `${v}% yes`], vote_hours: [0.05, 72, "Vote length", (v) => v < 1 ? `${Math.round(v * 60)} min` : `${v} h`],
+      max_gap_percent: [0.1, 20, "Max gap vs real price", (v) => `${v}%`], max_spread_percent: [0.1, 20, "Max bStocks/Ondo difference", (v) => `${v}%`],
+    };
+    const before = getRules(club.id) as any, lines: string[] = [];
+    for (const [k, raw] of Object.entries(changes ?? {})) {
+      if (k === "allowed_tickers") {
+        const v = raw == null || String(raw).trim() === "" ? null : String(raw).toUpperCase().split(/[\s,]+/).map((x) => x.replace(/[^A-Z.]/g, "")).filter(Boolean).slice(0, 50).join(",");
+        if ((before.allowed_tickers ?? null) !== v) { setRule(club.id, "allowed_tickers", v); lines.push(`Allowed stocks: ${before.allowed_tickers ?? "any"} → ${v ?? "any"}`); }
+        continue;
+      }
+      const lim = LIMITS[k];
+      if (!lim) continue;
+      const v = Number(raw);
+      if (!Number.isFinite(v) || v < lim[0] || v > lim[1]) { send(422, { error: `${lim[2]} must be from ${lim[0]} to ${lim[1]}.` }); return true; }
+      if (Number(before[k]) !== v) { setRule(club.id, k as any, v); lines.push(`${lim[2]}: ${lim[3](Number(before[k]))} → ${lim[3](v)}`); }
+    }
+    if (lines.length) {
+      await api.sendMessage(club.telegram_chat_id, `✏️ <b>${user.first_name ?? "The creator"} changed the club rules</b>\n${lines.map((l) => `• ${l}`).join("\n")}`, { parse_mode: "HTML" }).catch(() => {});
+    }
+    send(200, { ok: true, changed: lines.length, rules: getRules(club.id) }); return true;
+  }
+
   // Autopilot (Binance Agentic Wallet) from the app: same flow as /autopilot in the bot.
   if (url.pathname === "/api/app/autopilot") {
     if (!autopilotAvailable()) { send(200, { available: false }); return true; }
