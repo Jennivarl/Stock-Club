@@ -56,6 +56,20 @@ async function logo(id: string): Promise<Buffer | undefined> {
   return buf;
 }
 
+// "Log in with Telegram" on the website (https://core.telegram.org/widgets/login#checking-authorization):
+// hash = HMAC-SHA256(data_check_string, SHA256(bot_token)). We accept a login for 7 days.
+export function userFromLoginWidget(json: string): TgUser | undefined {
+  let d: Record<string, string | number>;
+  try { d = JSON.parse(json); } catch { return undefined; }
+  if (!d || typeof d.hash !== "string" || !d.id) return undefined;
+  const check = Object.keys(d).filter((k) => k !== "hash" && d[k] != null).sort().map((k) => `${k}=${d[k]}`).join("\n");
+  const secret = crypto.createHash("sha256").update(process.env.TELEGRAM_BOT_TOKEN ?? "").digest();
+  const mine = crypto.createHmac("sha256", secret).update(check).digest("hex");
+  if (mine.length !== d.hash.length || !crypto.timingSafeEqual(Buffer.from(mine), Buffer.from(d.hash))) return undefined;
+  if (Date.now() / 1000 - Number(d.auth_date ?? 0) > 7 * 24 * 3600) return undefined;
+  return { id: Number(d.id), first_name: d.first_name as string | undefined, username: d.username as string | undefined };
+}
+
 let stocksCache: { at: number; data: unknown } | undefined;
 async function stocks() {
   if (stocksCache && Date.now() - stocksCache.at < 30_000) return stocksCache.data;
@@ -155,6 +169,7 @@ export async function handleApp(api: Api, req: http.IncomingMessage, url: URL, s
     res.writeHead(200, { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" });
     res.end(buf); return true;
   }
+  if (req.method === "GET" && url.pathname === "/api/app/info") { botName ??= (await api.getMe()).username; send(200, { bot: botName }); return true; }
   if (req.method === "GET" && url.pathname === "/api/app/stocks") { send(200, await stocks()); return true; }
   if (req.method === "GET" && url.pathname === "/api/app/chart") {
     const t = String(url.searchParams.get("ticker") ?? "").toUpperCase();
@@ -181,7 +196,8 @@ export async function handleApp(api: Api, req: http.IncomingMessage, url: URL, s
     send(200, out); return true;
   }
 
-  const user = userFromInitData(String(req.headers["x-init-data"] ?? ""));
+  // Inside Telegram: the Mini App's signed initData. On the website: the signed "Log in with Telegram" data.
+  const user = userFromInitData(String(req.headers["x-init-data"] ?? "")) ?? userFromLoginWidget(String(req.headers["x-tg-login"] ?? ""));
   if (!user) { send(401, { error: "Open this from Telegram." }); return true; }
 
   if (req.method === "GET" && url.pathname === "/api/app/me") {

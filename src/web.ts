@@ -50,7 +50,7 @@ export function startWeb(api: Api) {
         res.writeHead(200, { "Content-Type": asset[2] === "svg" ? "image/svg+xml" : "image/png", "Cache-Control": "public, max-age=3600" });
         return res.end(fs.readFileSync(f));
       }
-      if (req.method === "GET" && (url.pathname === "/app" || url.pathname === "/app/")) {
+      if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/app" || url.pathname === "/app/")) {
         return send(res, 200, fs.readFileSync(path.join(PUBLIC, "app.html"), "utf8"), "text/html; charset=utf-8");
       }
       if (await handleApp(api, req, url, (code, body) => send(res, code, body), () => readJson(req), res)) return;

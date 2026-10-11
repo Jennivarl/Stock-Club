@@ -133,6 +133,17 @@
   .switch.on { background: linear-gradient(180deg, #ffd84f, #e9ae05); } .switch.on::after { left: 23px; background: #15120a; }
   .spin { display: inline-block; width: 11px; height: 11px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: r .8s linear infinite; vertical-align: -1px; margin-right: 6px; }
   @keyframes r { to { transform: rotate(360deg); } }
+  .weblogin { border-color: transparent; background: linear-gradient(180deg, rgba(28,33,41,.96), rgba(16,19,24,.96)) padding-box, linear-gradient(135deg, rgba(240,185,11,.6), rgba(240,185,11,.08) 50%, rgba(240,185,11,.35)) border-box; }
+  /* Website on a big screen: use the space */
+  @media (min-width: 900px) {
+    html.web .wrap { max-width: 980px; padding: 22px 28px; }
+    html.web #list .stock { grid-template-columns: 44px 1fr 120px 120px; }
+    html.web .movers { margin: 0; padding: 2px 0 6px; }
+    html.web .mover { flex: 0 0 180px; }
+    html.web #chart { height: 360px !important; }
+    html.web .tabs { left: 50%; right: auto; transform: translateX(-50%); width: 420px; bottom: 16px; border: 1px solid var(--line2); border-radius: 18px; }
+    html.web body { padding-bottom: 100px; }
+  }
   /* ticker tape */
   .tape { position: relative; overflow: hidden; margin: 12px -16px 0; padding: 9px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: rgba(255,255,255,.015); -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
   .tape .run { display: inline-flex; gap: 22px; white-space: nowrap; animation: tape 38s linear infinite; padding-left: 16px; }
@@ -296,6 +307,14 @@
   </div>
   <div class="tape"><div class="run num" id="tape"></div></div>
 
+  <div class="card weblogin" id="webLogin" style="display:none">
+    <div class="row between" style="gap:14px;flex-wrap:wrap">
+      <div style="flex:1;min-width:220px"><h3 style="margin:0">Trade from your browser</h3>
+        <div class="muted">Log in with Telegram to see your clubs, portfolio and Autopilot, and to trade. Or open Stock Club in Telegram.</div></div>
+      <div class="row" style="gap:10px;flex-wrap:wrap"><div id="tgWidget"></div><a class="btn ghost" id="openTg" style="width:auto;margin:0;padding:11px 16px;text-decoration:none" target="_blank">Open in Telegram</a></div>
+    </div>
+  </div>
+  <div class="row between" id="webUser" style="display:none;margin:8px 2px 0"><span class="muted" id="webUserName"></span><a href="#" class="muted" id="webLogout" style="font-weight:700">Log out</a></div>
   <div class="card hero" id="hero">
     <div class="row" style="gap:12px"><svg class="ic lg gold"><use href="#i-bank" id="heroIcon"/></svg>
       <div><h3 id="heroTitle">Wall Street is closed. On-chain isn't.</h3>
@@ -453,6 +472,9 @@
 const tg = window.Telegram?.WebApp; tg?.ready(); tg?.expand();
 try { tg?.setHeaderColor?.("#0a0c10"); tg?.setBackgroundColor?.("#0a0c10"); tg?.disableVerticalSwipes?.(); } catch {}
 const $ = (id) => document.getElementById(id);
+// Inside Telegram we get signed initData; in a normal browser we use "Log in with Telegram" instead.
+const inTG = !!tg?.initData;
+if (!inTG) document.documentElement.classList.add("web");
 const icon = (name, cls = "") => `<svg class="ic ${cls}"><use href="#i-${name}"/></svg>`;
 const fmt = (n, d = 2) => n == null ? "–" : Number(n).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
 const pct = (n) => n == null ? "–" : `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`;
@@ -473,7 +495,7 @@ const big = (n) => n == null ? "–" : n >= 1e12 ? `$${(n / 1e12).toFixed(2)}T` 
 
 async function api(path, body) {
   const r = await fetch(`/api/app/${path}`, { method: body ? "POST" : "GET",
-    headers: { "Content-Type": "application/json", "X-Init-Data": tg?.initData ?? "" }, body: body ? JSON.stringify(body) : undefined });
+    headers: { "Content-Type": "application/json", "X-Init-Data": tg?.initData ?? "", "X-Tg-Login": inTG ? "" : (store.get("tglogin") || "") }, body: body ? JSON.stringify(body) : undefined });
   const j = await r.json();
   if (!r.ok) throw new Error(j.error || `Error ${r.status}`);
   return j;
@@ -583,10 +605,29 @@ function renderList() {
 async function loadSparks() { try { sparks = await fetch("/api/app/sparks").then((r) => r.json()); if (market) { renderList(); renderMovers(); } } catch {} }
 
 // ---------- me / club ----------
+async function setupWebLogin() {
+  if (inTG) return;
+  const info = await fetch("/api/app/info").then((r) => r.json()).catch(() => ({}));
+  $("openTg").href = info.bot ? `https://t.me/${info.bot}/app` : "#";
+  if (me) {
+    $("webUser").style.display = ""; $("webUserName").textContent = `Logged in as ${me.user.name} via Telegram`;
+    $("webLogout").onclick = (e) => { e.preventDefault(); store.set("tglogin", ""); location.reload(); };
+    return;
+  }
+  $("webLogin").style.display = "";
+  if (!info.bot) return;
+  window.onTgAuth = (user) => { store.set("tglogin", JSON.stringify(user)); location.reload(); };
+  const sc = document.createElement("script");
+  sc.async = true; sc.src = "https://telegram.org/js/telegram-widget.js?22";
+  sc.setAttribute("data-telegram-login", info.bot); sc.setAttribute("data-size", "large"); sc.setAttribute("data-radius", "12");
+  sc.setAttribute("data-onauth", "onTgAuth(user)"); sc.setAttribute("data-request-access", "write");
+  $("tgWidget").appendChild(sc);
+}
 async function loadMe() {
   try { me = await api("me"); } catch { me = null; }
   if (me?.reset) { for (const k of ["onboarded", "wallet", "didTrade"]) store.set(k, ""); showOnboarding(0); }
   if (me) $("hello").textContent = `Hi ${me.user.name}`;
+  setupWebLogin();
   renderClubs(); renderStart();
 }
 // For people with no Binance account yet: the shortest path, in order.
@@ -604,7 +645,7 @@ const clubHowTo = () => `<div class="flow" style="margin-top:8px">
   <div class="n">2</div><div class="muted" style="padding-top:4px">Add <b style="color:var(--fg)">@${me?.bot ?? "the Stock Club bot"}</b> to the group</div><div class="l"></div><div></div>
   <div class="n">3</div><div class="muted" style="padding-top:4px">Send <code>/club start</code>, then friends send <code>/join</code></div></div>`;
 function renderClubs() {
-  if (!me) { $("clubs").innerHTML = `<div class="card muted">Open this app from Telegram to see your clubs.</div>`; return; }
+  if (!me) { $("clubs").innerHTML = `<div class="card muted">${inTG ? "Open this app from Telegram to see your clubs." : "Log in with Telegram (on Markets) to see your clubs."}</div>`; return; }
   if (!me.clubs.length) { $("clubs").innerHTML = `<div class="card"><h3>No club yet</h3>${clubHowTo()}</div>`; return; }
   $("clubs").innerHTML = me.clubs.map((c) => `
     <div class="card">
