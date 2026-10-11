@@ -158,6 +158,8 @@
   .stepper button { width: 38px; height: 38px; background: var(--card2); color: var(--gold); font-size: 20px; font-weight: 800; }
   .stepper b { min-width: 74px; text-align: center; font-size: 15px; font-weight: 800; }
   .opts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .btn.outline { background: transparent; color: var(--gold); border: 1.5px solid rgba(240,185,11,.6); box-shadow: none; }
+  .btn.outline::after { display: none; }
   .linkbtn { display: flex; align-items: center; justify-content: center; gap: 4px; width: 100%; margin-top: 8px; padding: 10px; background: none; color: var(--muted); font-weight: 700; font-size: 13px; }
   .choose { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
   .pick { text-align: left; padding: 12px; border-radius: 14px; background: var(--card2); border: 1px solid var(--line2); display: flex; flex-direction: column; gap: 4px; }
@@ -313,6 +315,7 @@
   <div class="stage" id="obStage"><div class="track" id="obTrack"></div></div>
   <div class="dots" id="obDots"></div>
   <button class="btn" id="obNext">Next</button>
+  <button class="linkbtn" id="obBrowse" style="display:none">Just browse the markets for now</button>
 </div>
 
 <!-- ===== Markets ===== -->
@@ -694,7 +697,7 @@ const clubHowTo = () => `<div class="flow" style="margin-top:10px">
   <div class="n">1</div><div class="muted" style="padding-top:4px"><b style="color:var(--fg)">Create a club:</b> pick a Telegram group with your friends, or make a new one</div><div class="l"></div><div></div>
   <div class="n">2</div><div class="muted" style="padding-top:4px">In the group, tap <b style="color:var(--fg)">Start a club here</b></div><div class="l"></div><div></div>
   <div class="n">3</div><div class="muted" style="padding-top:4px">Friends tap <b style="color:var(--fg)">Join the club</b>. Done.</div></div>
-  <button class="btn" data-newclub style="margin-top:12px">${icon("users", "sm")}Create a club</button>`;
+  <button class="btn outline" data-newclub style="margin-top:12px">${icon("users", "sm")}Create a club</button>`;
 const clubOrSolo = () => `<div class="muted" style="margin-top:4px">Stock Club is made for friends: propose a stock, vote in your group, and everyone buys in their own wallet.</div>${clubHowTo()}
   <button class="linkbtn" data-gosolo>Or trade solo for now ${icon("next", "sm")}</button>`;
 document.addEventListener("click", (e) => {
@@ -1213,6 +1216,7 @@ function go(i) {
   document.querySelectorAll("#obTrack .slide").forEach((el, k) => { el.classList.remove("on"); if (k === slide) { void el.offsetWidth; el.classList.add("on"); } });
   $("obDots").innerHTML = [...SLIDES, 0].map((_, k) => `<i class="${k === slide ? "on" : ""}"></i>`).join("");
   $("obSkip").textContent = slide < SLIDES.length ? "Skip" : "Later";
+  if (slide < SLIDES.length) $("obBrowse").style.display = "none";
   if (slide < SLIDES.length) { $("obNext").innerHTML = slide === SLIDES.length - 1 ? `Get ready ${icon("next", "sm")}` : `Next ${icon("next", "sm")}`; $("obNext").onclick = () => { haptic(); go(slide + 1); }; }
   else renderChecklist();
 }
@@ -1249,6 +1253,8 @@ async function renderChecklist() {
     <div class="card glow" style="margin-top:12px;padding:4px 14px">${steps.map((s) => `<div class="check"><div class="tick ${s.ok ? "ok" : ""}">${icon(s.i, "sm")}</div><div style="flex:1"><b>${s.t}</b><div class="muted">${s.d}</div></div></div>`).join("")}</div>`;
   const first = (hasClub || solo) && !did;
   const needLogin = !inTG && !me;
+  $("obBrowse").style.display = needLogin ? "" : "none";
+  $("obBrowse").onclick = () => { haptic(); finishOnboarding(); };
   $("obNext").innerHTML = needLogin ? `${icon("users", "sm")}Log in with Telegram` : !wallet ? "Check my wallet" : first ? `${icon("zap", "sm")}Try my first $1 trade` : "Go to Markets";
   $("obNext").onclick = () => {
     haptic();
