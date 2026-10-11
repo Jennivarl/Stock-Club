@@ -10,6 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+<script src="https://unpkg.com/qrcode-generator@1.4.4/qrcode.js" defer></script>
 <style>
   :root {
     --bg: #0a0c10; --bg2: #0f1217; --card: #14181e; --card2: #1b2028; --line: #232933; --line2: #2c3440;
@@ -120,6 +121,11 @@
   .apicon { width: 42px; height: 42px; border-radius: 13px; display: grid; place-items: center; color: #15120a; background: linear-gradient(180deg, #ffd84f, #e9ae05); box-shadow: 0 8px 18px -10px rgba(240,185,11,.8); }
   .appill { font-size: 12px; font-weight: 800; padding: 6px 12px; border-radius: 999px; background: var(--card2); color: var(--muted); border: 1px solid var(--line2); }
   .appill.on { background: rgba(240,185,11,.14); color: var(--gold); border-color: rgba(240,185,11,.45); }
+  .newbn { margin: 6px 0 8px; padding: 10px 12px; border-radius: 12px; background: rgba(240,185,11,.06); border: 1px solid rgba(240,185,11,.2); }
+  .newbn summary { cursor: pointer; font-weight: 800; color: var(--gold); list-style: none; display: flex; align-items: center; gap: 6px; }
+  .newbn summary::-webkit-details-marker { display: none; }
+  .newbn a { font-weight: 800; }
+  .qrbox { text-align: center; margin: 12px 0 4px; padding: 14px; border-radius: 16px; background: rgba(255,255,255,.03); border: 1px solid var(--line); }
   .paircode { display: flex; justify-content: center; gap: 8px; margin: 12px 0 4px; }
   .paircode span { width: 44px; height: 54px; border-radius: 12px; display: grid; place-items: center; font-size: 26px; font-weight: 800; background: var(--card2); border: 1px solid var(--gold); color: var(--gold); }
   .switch { position: relative; width: 50px; height: 30px; border-radius: 999px; background: #2a313b; border: 0; transition: background .2s; flex: none; }
@@ -580,6 +586,16 @@ async function loadMe() {
   if (me) $("hello").textContent = `Hi ${me.user.name}`;
   renderClubs(); renderStart();
 }
+// For people with no Binance account yet: the shortest path, in order.
+const newToBinance = () => `<details class="newbn"><summary>${icon("info", "sm")}New to Binance? Start here</summary>
+  <div class="flow" style="margin-top:10px">
+    <div class="n">1</div><div class="muted" style="padding-top:4px"><b style="color:var(--fg)">Get the Binance app</b> on your phone. <a href="#" data-open="https://www.binance.com/en/download">Download</a></div><div class="l"></div><div></div>
+    <div class="n">2</div><div class="muted" style="padding-top:4px"><b style="color:var(--fg)">Sign up</b> with email or phone. <a href="#" data-open="https://www.binance.com/en/register">Create account</a> · Binance may ask you to verify your ID.</div><div class="l"></div><div></div>
+    <div class="n">3</div><div class="muted" style="padding-top:4px"><b style="color:var(--fg)">Open Wallet</b> in the app and create your <b style="color:var(--fg)">Binance Wallet</b> (keyless, no seed phrase). This is where your stocks live.</div><div class="l"></div><div></div>
+    <div class="n">4</div><div class="muted" style="padding-top:4px"><b style="color:var(--fg)">Add funds:</b> buy USDT in the app, then move it plus ~$0.50 of BNB to your Binance Wallet on <b style="color:var(--fg)">BNB Smart Chain</b>.</div><div class="l"></div><div></div>
+    <div class="n">5</div><div class="muted" style="padding-top:4px"><b style="color:var(--fg)">Optional, Autopilot:</b> in the Club tab tap Connect Agentic Wallet. Binance creates the Agentic Wallet for you during that step.</div>
+  </div></details>`;
+document.addEventListener("click", (e) => { const a = e.target.closest?.("[data-open]"); if (!a) return; e.preventDefault(); const u = a.dataset.open; tg?.openLink ? tg.openLink(u) : window.open(u, "_blank"); });
 const clubHowTo = () => `<div class="flow" style="margin-top:8px">
   <div class="n">1</div><div class="muted" style="padding-top:4px">Make a Telegram group with your friends</div><div class="l"></div><div></div>
   <div class="n">2</div><div class="muted" style="padding-top:4px">Add <b style="color:var(--fg)">@${me?.bot ?? "the Stock Club bot"}</b> to the group</div><div class="l"></div><div></div>
@@ -627,18 +643,30 @@ async function loadAutopilot() {
   if (a.pending) return showPairing(a.pending);
   $("apBody").innerHTML = `${a.failed ? `<div class="callout" style="margin-bottom:10px">${icon("alert")}<div class="muted">Last login didn't finish (${a.failed}). Try again.</div></div>` : ""}
     <button class="btn" id="apConnect">${icon("bot", "sm")}Connect Agentic Wallet</button>
-    <div class="muted" style="margin-top:8px;font-size:12px">You approve in the Binance app. Takes about a minute.</div>`;
+    <div class="muted" style="margin-top:8px;font-size:12px">You approve in the Binance app. Takes about a minute. No Agentic Wallet yet? Binance creates it during this step.</div>
+    <div style="margin-top:10px">${newToBinance()}</div>`;
   $("apConnect").onclick = async () => {
     haptic(); $("apConnect").disabled = true;
     try { const r = await api("autopilot", { action: "connect" }); if (r.connected) return loadAutopilot(); showPairing(r); }
     catch (e) { toast(e.message, "bad"); $("apConnect").disabled = false; }
   };
 }
+// Telegram on a computer: show the login link as a QR code to scan with the phone.
+// (Binance's link is https://app.binance.com/uni-qr/<id>; app.binance.com opens the Binance app on iPhone.)
+const onComputer = () => ["tdesktop", "macos", "web", "weba", "webk", "unigram"].includes(tg?.platform ?? "") || !tg?.platform;
+function qrSvg(text) {
+  const q = window.qrcode(0, "M"); q.addData(text); q.make();
+  const n = q.getModuleCount(), cell = 5, pad = 4, size = (n + pad * 2) * cell;
+  let d = "";
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) d += `M${(c + pad) * cell},${(r + pad) * cell}h${cell}v${cell}h-${cell}z`;
+  return `<svg viewBox="0 0 ${size} ${size}" width="190" height="190" style="border-radius:14px;display:block;margin:0 auto"><rect width="${size}" height="${size}" fill="#fff"/><path d="${d}" fill="#0a0c10"/></svg>`;
+}
 function showPairing(p) {
   $("apBody").innerHTML = `
     <div class="muted" style="text-align:center">Check this code in the Binance app:</div>
     <div class="paircode num">${String(p.code).split("").map((c) => `<span>${c}</span>`).join("")}</div>
-    <button class="btn" id="apOpen">Open Binance to approve ${icon("next", "sm")}</button>
+    ${onComputer() && window.qrcode ? `<div class="qrbox">${qrSvg(p.url)}<div class="muted" style="margin-top:8px">Scan with your phone's camera. It opens the Binance app.</div></div>` : ""}
+    <button class="btn ${onComputer() ? "ghost" : ""}" id="apOpen">${onComputer() ? "Or open the link here" : "Open Binance to approve"} ${icon("next", "sm")}</button>
     <div class="flow" style="margin-top:14px">
       <div class="n">1</div><div class="muted" style="padding-top:4px">Approve the login (the code must match)</div><div class="l"></div><div></div>
       <div class="n">2</div><div class="muted" style="padding-top:4px">If asked, create the Agentic Wallet and tick <b style="color:var(--fg)">Secure Auto Sign</b></div><div class="l"></div><div></div>
@@ -999,7 +1027,7 @@ async function getSteps() {
   let p = null; if (wallet) { try { p = await api(`portfolio?wallet=${wallet}`); } catch {} }
   const hasClub = !!me?.clubs?.length, did = store.get("didTrade") === "1";
   return { wallet, p, hasClub, did, steps: [
-    { ok: !!wallet, i: "wallet", t: "Binance Wallet", d: wallet ? `Connected <code>${wallet.slice(0, 6)}…${wallet.slice(-4)}</code>` : `Get the Binance app and open <b>Wallet</b> (keyless). Paste your BNB Smart Chain address:<input id="obW" placeholder="0x…" />` },
+    { ok: !!wallet, i: "wallet", t: "Binance Wallet", d: wallet ? `Connected <code>${wallet.slice(0, 6)}…${wallet.slice(-4)}</code>` : `${newToBinance()}Already have it? In the Binance app open <b>Wallet</b> (keyless) and paste your BNB Smart Chain address:<input id="obW" placeholder="0x…" />` },
     { ok: p ? p.usdt >= 1 : false, i: "coins", t: "USDT on BNB Smart Chain", d: p ? `You have <b class="num" style="color:var(--fg)">$${fmt(p.usdt)}</b>.` + (p.usdt >= 1 ? "" : " Buy USDT in the Binance app and send it to your Binance Wallet on BNB Smart Chain.") : "The cash you buy stocks with. $5 is plenty to start." },
     { ok: p ? p.bnb >= 0.0003 : false, i: "fuel", t: "A little BNB for fees", d: p ? `You have <span class="num">${fmt(p.bnb, 5)}</span> BNB.` + (p.bnb >= 0.0003 ? " Enough for many trades." : " About $0.50 covers many trades (a few cents each).") : "Each trade costs a few cents in BNB." },
     { ok: hasClub, i: "users", t: "Join a club", d: hasClub ? `You're in <b style="color:var(--fg)">${me.clubs.map((c) => c.name).join(", ")}</b>.` : clubHowTo() },
