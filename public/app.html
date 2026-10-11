@@ -708,7 +708,7 @@ async function loadMe() {
   setupWebLogin();
   renderClubs(); renderStart(); renderPaperCard();
 }
-// Shown until someone has a club or a wallet (e.g. judges trying it out).
+// Shown until someone has a club or a wallet (a first visit).
 function renderPaperCard() {
   $("paperCard").style.display = me?.clubs?.length || me?.wallet || store.get("wallet") ? "none" : "";
   $("paperGo").onclick = () => { haptic(); tmode = "paper"; amount = 100; openStock("NVDA"); };

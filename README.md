@@ -58,9 +58,9 @@ Real stock prices come from **Finnhub** (free plan). Wallet connection uses **Wa
 | Tap to sell, NVDA → 1.00 USDT | [0x4181f731…db287e1](https://bscscan.com/tx/0x4181f731d25bdce9b12768071978471090a3bc916155c8785064debd9db287e1) |
 | Autopilot sell, NVDA → 1.94 USDT | [0x9a01e109…a5ef8822](https://bscscan.com/tx/0x9a01e109365d888e76011056ff033c7efca15f90f6b94c1a36dfdcc3a5ef8822) |
 
-## Try it (for judges)
+## Try it
 
-**Fastest, free (no wallet, no money, no login):** open **[stockclubhq.xyz](https://stockclubhq.xyz)** or the bot's Mini App, tap **Start paper trading** on Markets (or pick **Paper** under *Trade* on any stock), and buy or sell with $1,000 of pretend USDT at live on-chain prices. Your paper portfolio is in the **Portfolio** tab → **Paper**.
+**Try it for free (no wallet, no money, no login):** open **[stockclubhq.xyz](https://stockclubhq.xyz)** or the bot's Mini App, tap **Start paper trading** on Markets (or pick **Paper** under *Trade* on any stock), and buy or sell with $1,000 of pretend USDT at live on-chain prices. Your paper portfolio is in the **Portfolio** tab → **Paper**.
 
 **Real trades** need Telegram, the Binance app, and a little **USDT + BNB on BNB Smart Chain** (a few dollars is plenty; trades work from $1).
 
