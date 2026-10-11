@@ -1290,6 +1290,17 @@ document.querySelector("#v-home .brand").onclick = () => { haptic(); showOnboard
 
 // ---------- start ----------
 (async () => {
+  // Telegram's login can come back as a full-page redirect: https://stockclubhq.xyz/#tgAuthResult=<base64 JSON>.
+  const tgr = location.hash.match(/tgAuthResult=([A-Za-z0-9_\-+/=]+)/);
+  if (tgr) {
+    try {
+      let b = tgr[1].replace(/-/g, "+").replace(/_/g, "/"); while (b.length % 4) b += "=";
+      const user = JSON.parse(decodeURIComponent(escape(atob(b))));
+      if (user?.id && user?.hash) { store.set("tglogin", JSON.stringify(user)); store.set("resumeSetup", store.get("onboarded") === "1" ? "" : "1"); }
+    } catch {}
+    history.replaceState(null, "", location.pathname + location.search);
+    if (store.get("tglogin")) { location.reload(); return; }
+  }
   // Just logged in on the website during setup: go back to the checklist, not the first intro slide.
   if (store.get("resumeSetup") === "1") { store.set("resumeSetup", ""); showOnboarding(SLIDES.length); }
   else if (store.get("onboarded") !== "1") showOnboarding(0);
