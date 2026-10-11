@@ -759,8 +759,26 @@ function renderClubs() {
       </table>
       ${c.rules.paused ? `<div class="pill closed" style="margin-top:8px">${icon("pause", "sm")}Paused</div>` : ""}
       ${c.isCreator ? `<button class="btn ghost" data-editrules="${c.chatId}" style="margin-top:12px">${icon("vote", "sm")}Edit rules</button>` : `<div class="muted" style="margin-top:10px;font-size:12px">Only the club creator can change the rules.</div>`}
-    </div>`).join("");
+    </div>
+    ${c.ai?.available ? `<div class="card glow">
+      <div class="row between"><div class="row">${icon("bot", "gold")}<h3 style="margin:0">AI analyst</h3></div>
+        <button class="chip sm ${c.ai.auto ? "on" : ""}" data-aiauto="${c.chatId}">${c.ai.auto ? "Auto · every 6 h" : "Auto off"}</button></div>
+      <div class="muted" style="margin-top:6px">Reads live prices, the gap, RSI, trends, earnings and news for your club's stocks, then proposes one trade, or says hold, with its reasons. It never trades by itself: your club votes, and the rules still apply.</div>
+      <div class="muted num" style="margin-top:8px;font-size:12px">${c.ai.record}</div>
+      <button class="btn" data-airun="${c.chatId}" style="margin-top:12px">${icon("bot", "sm")}Ask the AI analyst now</button>
+    </div>` : ""}`).join("");
   document.querySelectorAll("[data-editrules]").forEach((b) => b.onclick = () => openRules(Number(b.dataset.editrules)));
+  document.querySelectorAll("[data-airun]").forEach((b) => b.onclick = async () => {
+    haptic(); b.disabled = true;
+    try { await api("ai", { chatId: Number(b.dataset.airun), action: "run" }); toast("The AI analyst is on it. Its call appears in your group in about a minute.", "ok", 6000); }
+    catch (e) { toast(e.message, "bad", 6000); }
+    b.disabled = false;
+  });
+  document.querySelectorAll("[data-aiauto]").forEach((b) => b.onclick = async () => {
+    haptic(); const c = me.clubs.find((x) => x.chatId === Number(b.dataset.aiauto));
+    try { await api("ai", { chatId: c.chatId, action: c.ai.auto ? "off" : "on" }); c.ai.auto = !c.ai.auto; renderClubs(); toast(c.ai.auto ? "AI analyst will check every 6 hours." : "AI analyst auto mode off.", "ok"); }
+    catch (e) { toast(e.message, "bad"); }
+  });
 }
 
 // ---------- edit rules (club creator) ----------

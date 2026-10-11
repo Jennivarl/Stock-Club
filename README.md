@@ -27,6 +27,7 @@ Stock Club shows the gap for every stock, and lets a group of friends **decide t
   - **Tap to buy/sell:** the bot sends each yes-voter a button; they confirm in their own Binance Wallet (WalletConnect).
   - **Autopilot:** the bot buys or sells automatically from the member's own **Binance Agentic Wallet**, within the spending limit they set in the Binance app.
 - **Alerts:** "tell us when NVDA's gap goes over 1%" or "when TSLA goes above $400". The bot posts in the group when it happens.
+- **AI analyst:** `/ai` (or *Ask the AI analyst* in the app). It reads live data for the club's stocks (on-chain price, gap vs the real stock, RSI, moving averages, 7/30-day trend, P/E, next earnings, news headlines) and decides **buy** (one stock, one amount) or **hold**, with its reasons. A buy becomes a normal club vote with the same rule and market checks; the AI never trades by itself. `/ai on` lets it check every 6 hours; every buy call is scored 24 h later (`/ai track` shows its record).
 
 **In the Mini App (Telegram) and on the website**
 - **Markets:** live on-chain prices for tracked stocks, % change, the **gap vs the real stock**, a Wall Street open/closed status with a countdown, and top movers.
@@ -47,7 +48,7 @@ Stock Club shows the gap for every stock, and lets a group of friends **decide t
 | **Agentic Wallet** (`baw` CLI) | `src/autopilot.ts` | Autopilot: per-member sign-in, balance, and automatic market-order buys/sells after a vote passes |
 | **BNB Chain** (BSC RPC) | `src/trading.ts`, `src/web.ts` | Balances, allowances, gas estimates, and confirming every trade on-chain before reporting it |
 
-Real stock prices come from **Finnhub** (free plan). Wallet connection uses **WalletConnect / Reown AppKit**.
+Real stock prices come from **Finnhub** (free plan). Wallet connection uses **WalletConnect / Reown AppKit**. The AI analyst uses an **OpenAI** model (`gpt-5.4-mini` by default).
 
 ## Proof: real trades on BNB Chain
 
@@ -72,7 +73,7 @@ Real stock prices come from **Finnhub** (free plan). Wallet connection uses **Wa
 6. **Solo:** on any stock page, switch **Trade** to **Solo** and tap **Buy $1 now**.
 7. **Website:** open **[stockclubhq.xyz](https://stockclubhq.xyz)** and **Log in with Telegram**.
 
-Useful group commands: `/propose NVDA 10`, `/propose sell NVDA`, `/alert NVDA gap 1`, `/alerts`, `/rules`, `/price NVDA`, `/stop` (pause the club).
+Useful group commands: `/propose NVDA 10`, `/propose sell NVDA`, `/ai`, `/ai on`, `/ai track`, `/alert NVDA gap 1`, `/alerts`, `/rules`, `/price NVDA`, `/stop` (pause the club).
 
 ## How it works
 
@@ -80,6 +81,7 @@ Useful group commands: `/propose NVDA 10`, `/propose sell NVDA`, `/alert NVDA ga
 Telegram group ──► Bot (grammY, Node 22) ──► Binance Web3 API (RWA Data + Trading)
       │                    │                          │
       │                    ├──► Finnhub (real stock prices)
+      │                    ├──► OpenAI (AI analyst: buy or hold, with reasons)
       │                    ├──► SQLite (clubs, rules, votes, orders, alerts)
       │                    └──► baw CLI ──► Binance Agentic Wallet (Autopilot)
       ▼
@@ -108,7 +110,7 @@ npm start                     # bot + web server on 127.0.0.1:8080
 
 Put a reverse proxy with HTTPS in front (see `deploy/Caddyfile`). In @BotFather: create the Mini App with `/newapp` (short name `app`, URL `https://<your-domain>/app`) and set the login domain with `/setdomain`. Add your domain to the Reown project allowlist.
 
-Optional: run `node scripts/gap-logger.mjs` (e.g. as a service) to record the price history used by the gap charts. For Autopilot, install the Binance Agentic Wallet CLI (`baw`) and set `BINANCE_INSTANCE_ID`.
+Optional: set `OPENAI_API_KEY` for the AI analyst. Run `node scripts/gap-logger.mjs` (e.g. as a service) to record the price history used by the gap charts. For Autopilot, install the Binance Agentic Wallet CLI (`baw`) and set `BINANCE_INSTANCE_ID`.
 
 ## Project structure
 
@@ -122,6 +124,7 @@ src/
   tools.ts       Candles, news + earnings, price impact, full stock list
   appapi.ts      Mini App / website API (Telegram login check, markets, portfolio, rules, solo, paper quotes)
   alerts.ts      Club alerts
+  analyst.ts     AI analyst: live signals → buy/hold decision → club vote; 24 h scoring
   web.ts         HTTP server: Mini App, Buy/Sell page, chain watcher
   db.ts          SQLite schema and queries
   card.ts, stocks.ts, binance.ts   Price card, Finnhub, signed Binance requests

@@ -12,6 +12,7 @@ import {
 import { startWeb } from "./web.js";
 import { freshStart } from "./appapi.js";
 import { activeAlerts, addAlert, checkAlerts, describe, removeAlert } from "./alerts.js";
+import { aiAvailable, analystTick, runAnalyst, setAuto, trackRecord } from "./analyst.js";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) throw new Error("Missing TELEGRAM_BOT_TOKEN in .env");
@@ -36,6 +37,8 @@ const HELP = [
   "/alert NVDA gap 1 - tell the group when NVDA's on-chain price is 1% off the real one",
   "/alert TSLA above 400 (or below 350) - price alert",
   "/alerts - this club's alerts · /alert off 3 - remove one",
+  "/ai - the AI analyst reads live data and proposes a trade (or says hold); your club still votes",
+  "/ai on · /ai off - let the AI analyst check every 6 hours by itself · /ai track - its track record",
   "/stop - any member can pause the club",
   "/resume - un-pause (club creator)",
   "",
@@ -424,6 +427,25 @@ bot.command("resume", async (ctx) => {
   await ctx.reply("✅ Club resumed. Proposals are open again.");
 });
 
+// AI analyst: "/ai" runs it now; "/ai on|off" = every 6 hours by itself; "/ai track" = how its calls did.
+bot.command("ai", async (ctx) => {
+  const club = isGroup(ctx) ? getClub(ctx.chat!.id) : undefined;
+  if (!club) return ctx.reply("Run /ai inside your club's group.");
+  const member = getMember(club.id, ctx.from!.id);
+  if (!member) return ctx.reply("Only members can ask the AI analyst. Tap /join first.");
+  if (!aiAvailable()) return ctx.reply("The AI analyst isn't set up on this server.");
+  const arg = ctx.match.trim().toLowerCase();
+  if (arg === "track") return ctx.reply(`🤖 ${trackRecord(club.id)}`);
+  if (arg === "on" || arg === "off") {
+    setAuto(club.id, arg === "on");
+    return ctx.reply(arg === "on"
+      ? "🤖 AI analyst is ON: every 6 hours it reads the market and proposes a trade (or says hold). Your club still votes on everything. /ai off to stop."
+      : "🤖 AI analyst auto mode is off. You can still ask it any time with /ai.");
+  }
+  const err = await runAnalyst(ctx.api, club, member);
+  if (err) await ctx.reply(err);
+});
+
 // Close votes when their time is up. Runs every 20 s; also catches votes that ended while the bot was down.
 async function sweep() {
   expireOldTapOrders();
@@ -437,6 +459,7 @@ async function sweep() {
 }
 setInterval(sweep, 20_000);
 setInterval(() => checkAlerts(bot.api).catch((e) => console.error("alerts", e.message)), 120_000);
+setInterval(() => analystTick(bot.api).catch((e) => console.error("analyst tick", e.message)), 5 * 60_000);
 
 bot.catch((err) => console.error("bot error", err.error));
 
@@ -449,6 +472,7 @@ await bot.api.setMyCommands([
   { command: "propose", description: "start a vote: /propose NVDA 20" },
   { command: "alert", description: "alert the group: /alert NVDA gap 1" },
   { command: "alerts", description: "this club's active alerts" },
+  { command: "ai", description: "AI analyst proposes a trade: /ai, /ai on, /ai track" },
   { command: "stop", description: "pause the club (any member)" },
   { command: "resume", description: "un-pause the club (creator)" },
   { command: "autopilot", description: "let me buy for you (private chat)" },

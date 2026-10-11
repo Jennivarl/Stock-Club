@@ -10,6 +10,7 @@ import { checkMarket, pickIssuer, startProposal } from "./proposals.js";
 import { priceCard, type Card } from "./card.js";
 import { candles, impact, news, stockDetail, universe } from "./tools.js";
 import { activeAlerts, addAlert, describe } from "./alerts.js";
+import { aiAvailable, isAuto, runAnalyst, setAuto, trackRecord } from "./analyst.js";
 import { autopilotAvailable, isConnected, startSignin, waitForSignin, walletInfo } from "./autopilot.js";
 import { isTradable, ISSUER_NAME, quotesForMany, wallStreetNow } from "./rwa.js";
 import { realQuote } from "./stocks.js";
@@ -238,7 +239,8 @@ export async function handleApp(api: Api, req: http.IncomingMessage, url: URL, s
   if (req.method === "GET" && url.pathname === "/api/app/me") {
     const clubs = clubsOf(user.id).map((c) => {
       const m = getMember(c.id, user.id);
-      return { chatId: c.telegram_chat_id, name: c.name, isCreator: c.created_by === user.id, members: getMembers(c.id).length, autopilot: Boolean(m?.autopilot_on), rules: getRules(c.id) };
+      return { chatId: c.telegram_chat_id, name: c.name, isCreator: c.created_by === user.id, members: getMembers(c.id).length, autopilot: Boolean(m?.autopilot_on), rules: getRules(c.id),
+        ai: { available: aiAvailable(), auto: isAuto(c.id), record: trackRecord(c.id) } };
     });
     botName ??= (await api.getMe()).username;
     const reset = freshStart.delete(user.id); // /resetapp: the app forgets this user once
@@ -359,6 +361,25 @@ export async function handleApp(api: Api, req: http.IncomingMessage, url: URL, s
     createTapOrder(Number(pr.lastInsertRowid), member.id, usd, tapToken);
     send(200, { url: `/buy?t=${tapToken}` });
     return true;
+  }
+  // AI analyst for a club: run it now (its call is posted in the group), or turn auto mode on/off.
+  if (req.method === "POST" && url.pathname === "/api/app/ai") {
+    const { chatId, action } = await readJson();
+    const club = getClub(Number(chatId));
+    const member = club && getMember(club.id, user.id);
+    if (!club || !member) { send(403, { error: "You're not a member of that club." }); return true; }
+    if (!aiAvailable()) { send(503, { error: "The AI analyst isn't set up on this server." }); return true; }
+    if (action === "on" || action === "off") {
+      setAuto(club.id, action === "on");
+      await api.sendMessage(club.telegram_chat_id, action === "on"
+        ? `🤖 ${member.name} turned the AI analyst ON: every 6 hours it proposes a trade (or says hold). The club still votes on everything.`
+        : `🤖 ${member.name} turned AI analyst auto mode off. Ask it any time with /ai.`).catch(() => {});
+      send(200, { ok: true }); return true;
+    }
+    // Runs in the background (reading the market takes a while); the result goes to the group.
+    const quick = await Promise.race([runAnalyst(api, club, member), new Promise<string | null>((r) => setTimeout(() => r(null), 1500))]);
+    if (quick) { send(422, { error: quick }); return true; }
+    send(200, { ok: true }); return true;
   }
   if (req.method === "POST" && url.pathname === "/api/app/propose") {
     const { chatId, ticker, amount, side } = await readJson();

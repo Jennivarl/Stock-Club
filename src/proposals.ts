@@ -288,12 +288,14 @@ async function runSells(api: Api, chatId: number, p: Proposal, yes: Member[], ca
   await postResults(api, chatId, p, lines);
 }
 
-export function proposalIntro(club: Club, proposer: Member, p: Proposal, card: Card, rules: Rules): string {
+export function proposalIntro(club: Club, proposer: Member, p: Proposal, card: Card, rules: Rules, by?: { name: string; note: string }): string {
   const closes = new Date(p.closes_at);
+  const who = by ? by.name : `<b>${esc(proposer.name)}</b>`;
   return (
     (p.side === "sell"
-      ? `🗳 <b>${esc(proposer.name)}</b> proposes: <b>sell ${esc(p.ticker)}</b>. Everyone who votes yes sells all their ${esc(p.ticker)} for USDT.\n\n`
-      : `🗳 <b>${esc(proposer.name)}</b> proposes: buy <b>$${p.amount_usd} of ${esc(p.ticker)}</b> each.\n\n`) +
+      ? `🗳 ${who} proposes: <b>sell ${esc(p.ticker)}</b>. Everyone who votes yes sells all their ${esc(p.ticker)} for USDT.\n\n`
+      : `🗳 ${who} proposes: buy <b>$${p.amount_usd} of ${esc(p.ticker)}</b> each.\n\n`) +
+    (by ? `${by.note}\n\n` : "") +
     `${card.text}\n\n` +
     `Vote below. Passes with ${rules.vote_pass_percent}% yes and at least half the club voting.\n` +
     `Closes at ${closes.toISOString().slice(11, 16)} UTC (${rules.vote_hours} h). Only members count, /join to vote.`
@@ -302,7 +304,8 @@ export function proposalIntro(club: Club, proposer: Member, p: Proposal, card: C
 
 // Starts a vote in the club's group: rule + market checks, the intro message, then the poll.
 // Used by /propose and by the Mini App's Propose buttons. Returns a refusal (HTML) or null when the vote started.
-export async function startProposal(api: Api, club: Club, member: Member, ticker: string, amount: number, side: "buy" | "sell"): Promise<string | null> {
+// `by`: set when the AI analyst made the proposal (src/analyst.ts): its name and reasons for the intro.
+export async function startProposal(api: Api, club: Club, member: Member, ticker: string, amount: number, side: "buy" | "sell", by?: { name: string; note: string }): Promise<string | null> {
   const rules = getRules(club.id);
   // Selling doesn't spend, so only the pause applies (not the trade/week limits or the allowed list).
   const ruleNo = side === "sell"
@@ -322,7 +325,7 @@ export async function startProposal(api: Api, club: Club, member: Member, ticker
   if (marketNo) return marketNo;
 
   const p = createProposal(club.id, member.id, ticker, amount, rules.vote_hours, side);
-  await api.sendMessage(club.telegram_chat_id, proposalIntro(club, member, p, card, rules), {
+  await api.sendMessage(club.telegram_chat_id, proposalIntro(club, member, p, card, rules, by), {
     parse_mode: "HTML",
     reply_markup: { inline_keyboard: [[{ text: `View ${ticker} chart`, url: await appLink(api, ticker) }]] },
   });
