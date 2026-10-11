@@ -55,6 +55,7 @@
     <p id="msg">Getting your order…</p>
     <div id="detail" class="muted"></div>
     <button id="btnMain" class="hidden"></button>
+    <button id="btnReconnect" class="secondary hidden">Nothing showed in Binance? Reconnect wallet</button>
   </div>
 
   <div class="card center hidden" id="doneCard">
@@ -211,11 +212,23 @@ async function makePlan() {
 
 // Asks the wallet, then waits for whichever comes first: the wallet's answer, or the chain showing it happened.
 // On a phone the page freezes while you're in the wallet app, so the wallet's answer often never arrives.
+// A saved wallet connection can be dead on Binance's side (Oct 11: a 6-hour-old one; the request was sent,
+// Binance showed nothing). If you come back and nothing happened, offer a fresh connection.
+let pendingRequest = false;
+async function reconnectWallet() {
+  log("reconnect-tap");
+  $("btnReconnect").disabled = true; $("btnReconnect").textContent = "Starting a fresh connection…";
+  try { for (const k of Object.keys(localStorage)) if (/^(wc@2|@appkit|WALLETCONNECT)/i.test(k)) localStorage.removeItem(k); } catch {}
+  await new Promise((done) => { try { const r = indexedDB.deleteDatabase("WALLET_CONNECT_V2_INDEXED_DB"); r.onsuccess = r.onerror = r.onblocked = () => done(); setTimeout(done, 2000); } catch { done(); } });
+  location.reload();
+}
+$("btnReconnect").onclick = reconnectWallet;
 function untilDone(ask, checkChain) {
+  pendingRequest = true;
   return new Promise((resolve, reject) => {
     let over = false, walletFailedAt = 0;
     const t0 = Date.now();
-    const end = (fn, v) => { if (over) return; over = true; clearInterval(iv); document.removeEventListener("visibilitychange", onVis); fn(v); };
+    const end = (fn, v) => { if (over) return; over = true; pendingRequest = false; show("btnReconnect", false); clearInterval(iv); document.removeEventListener("visibilitychange", onVis); fn(v); };
     ask.then((hash) => end(resolve, { hash }), (e) => {
       const msg = `${e?.code ?? ""} ${e?.message ?? e}`;
       log("request-error", msg);
@@ -288,6 +301,7 @@ document.addEventListener("visibilitychange", () => {
   if (document.hidden) { log("sleep"); wc.sleep().catch((e) => log("sleep-error", e?.message)); return; }
   log("wake");
   wc.wake().catch((e) => log("wake-error", e?.message));
+  if (pendingRequest) setTimeout(() => { if (pendingRequest) show("btnReconnect"); }, 4000);
   for (const ms of [3000, 8000]) setTimeout(() => wc.catchUp().then((n) => n && log("caught-up", n)).catch(() => {}), ms);
 });
 async function startWallet() {
