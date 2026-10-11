@@ -83,7 +83,8 @@ async function stocks() {
     stocks: WATCH.map((ticker, i) => {
       const qs = quotes.get(ticker) ?? [];
       const tradable = qs.filter(isTradable);
-      const best = [...tradable].sort((a, b) => a.sharePrice - b.sharePrice)[0];
+      // Closed tokens (e.g. Ondo on weekends) still show their last price, change and gap.
+      const best = [...tradable].sort((a, b) => a.sharePrice - b.sharePrice)[0] ?? qs[0];
       const real = reals[i];
       const bs = qs.find((q) => q.platformId === "bstock");
       // These look company-level (NVDA marketCap ~ $5.5T, volume ~ $36B/day), repeated on each issuer's token,
@@ -97,6 +98,8 @@ async function stocks() {
         onchain: best?.sharePrice ?? qs[0]?.sharePrice ?? null,
         bestIssuer: best ? ISSUER_NAME[best.platformId] : null,
         tradable: tradable.length > 0,
+        status: tradable.length ? "open" : (qs[0]?.statusInfo?.reasonMsg ?? qs[0]?.statusInfo?.reasonCode ?? "closed"),
+        nextOpen: tradable.length ? null : (qs[0]?.statusInfo as any)?.nextOpenTime ?? null,
         issuers: qs.map((q) => ({ name: ISSUER_NAME[q.platformId], symbol: q.tokenSymbol, price: q.sharePrice, open: isTradable(q), logo: rememberLogo(q.tokenLogoUrl) })),
         real: real ? { price: real.price, prevClose: real.prevClose, at: real.at } : null,
         gapPct: best && real ? (best.sharePrice / real.price - 1) * 100 : null,
@@ -120,15 +123,16 @@ function chart(ticker: string, days: number) {
     const file = path.resolve(`data/real-${day}.jsonl`);
     if (!fs.existsSync(file)) continue;
     for (const line of fs.readFileSync(file, "utf8").split("\n")) {
-      if (!line.includes(`"ticker":"${ticker}"`) || !line.includes('"platform":"bstock"')) continue;
+      if (!line.includes(`"ticker":"${ticker}"`)) continue;
       try {
         const r = JSON.parse(line);
-        if (r.realPrice && r.sharePrice) points.push({ t: Date.parse(r.time), onchain: Number(r.sharePrice), real: Number(r.realPrice) });
+        if (r.realPrice && r.sharePrice) points.push({ t: Date.parse(r.time), onchain: Number(r.sharePrice), real: Number(r.realPrice), platform: r.platform } as any);
       } catch {}
     }
   }
-  // One point per hour is plenty for a phone chart.
-  const hourly = [...new Map(points.map((p) => [Math.floor(p.t / 3600_000), p])).values()];
+  // Prefer bStocks rows; if we only recorded Ondo for this stock, use those. One point per hour.
+  const pick = points.some((p: any) => p.platform === "bstock") ? points.filter((p: any) => p.platform === "bstock") : points;
+  const hourly = [...new Map(pick.map((p) => [Math.floor(p.t / 3600_000), p])).values()];
   const data = { ticker, points: hourly };
   chartCache.set(key, { at: Date.now(), data });
   return data;

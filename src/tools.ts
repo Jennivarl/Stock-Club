@@ -108,6 +108,7 @@ export async function universe(logo: (url?: string) => string | null) {
         return {
           ticker: t, name: qs[0]?.underlyingName ?? t, onchain: best?.sharePrice ?? null, tradable: tradable.length > 0,
           logo: logo(bs?.tokenLogoUrl ?? qs.find((q) => q.tokenLogoUrl)?.tokenLogoUrl), issuers: qs.map((q) => ISSUER_NAME[q.platformId]),
+          status: tradable.length ? "open" : (qs[0]?.statusInfo?.reasonMsg ?? "closed"), nextOpen: tradable.length ? null : (qs[0]?.statusInfo as any)?.nextOpenTime ?? null,
         };
       })
       .filter((s) => s.onchain)
@@ -120,12 +121,13 @@ export async function stockDetail(ticker: string, logo: (url?: string) => string
   return cached(`d:${ticker}`, 30_000, async () => {
     const qs = (await quotesForMany([ticker])).get(ticker) ?? [];
     if (!qs.length) return null;
-    const tradable = qs.filter(isTradable), best = [...tradable].sort((a, b) => a.sharePrice - b.sharePrice)[0];
+    const tradable = qs.filter(isTradable), best = [...tradable].sort((a, b) => a.sharePrice - b.sharePrice)[0] ?? qs[0];
     const bs = qs.find((q) => q.platformId === "bstock"), real = await realQuote(ticker).catch(() => null);
     const one = (k: "volume24H" | "marketCap" | "peRatioTTM") => Number(bs?.[k] ?? qs.find((q) => q[k])?.[k]) || null;
     return {
       ticker, name: qs[0].underlyingName, logo: logo(bs?.tokenLogoUrl ?? qs.find((q) => q.tokenLogoUrl)?.tokenLogoUrl),
       onchain: best?.sharePrice ?? qs[0].sharePrice, bestIssuer: best ? ISSUER_NAME[best.platformId] : null, tradable: tradable.length > 0,
+      status: tradable.length ? "open" : (qs[0]?.statusInfo?.reasonMsg ?? "closed"), nextOpen: tradable.length ? null : (qs[0]?.statusInfo as any)?.nextOpenTime ?? null,
       issuers: qs.map((q) => ({ name: ISSUER_NAME[q.platformId], symbol: q.tokenSymbol, price: q.sharePrice, open: isTradable(q), logo: logo(q.tokenLogoUrl) })),
       real: real ? { price: real.price, prevClose: real.prevClose, at: real.at } : null,
       gapPct: best && real ? (best.sharePrice / real.price - 1) * 100 : null,
