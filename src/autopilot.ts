@@ -1,6 +1,6 @@
 // Autopilot: buys for a member through their own Binance Agentic Wallet, using the `baw` CLI.
 // Each member gets their own session folder (BINANCE_BAW_DIR). This only stays separate when the
-// OS keychain is unavailable (true on our Linux server: keytar can't load), see DX log.
+// OS keychain is unavailable (true on our Linux server: keytar can't load).
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -140,7 +140,7 @@ function formatUnits(raw: bigint, decimals: number): string {
 }
 
 // We do NOT trust the orderId that `market-order swap` returns: on Oct 7 it returned an id that
-// `market-order list --orderId` never found (DX log). So we also match recent orders by token + time.
+// `market-order list --orderId` never found. So we also match recent orders by token + time.
 async function swap(telegramUserId: number, fromToken: string, toToken: string, fromQty: string): Promise<BuyResult> {
   {
     const startedAt = Date.now();

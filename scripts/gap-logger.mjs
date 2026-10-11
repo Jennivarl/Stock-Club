@@ -72,7 +72,7 @@ async function run() {
       tokens.push(...r.data);
     }
     // Docs say max 100 addresses, but 90+ fails with HTTP 414 (URL too long). Use 50.
-    // /rwa/price gives different numbers than /rwa/tokens (see DX log), so save both.
+    // /rwa/price gives different numbers than /rwa/tokens, so save both.
     const price = new Map();
     for (let i = 0; i < tokens.length; i += 50) {
       const addrs = tokens.slice(i, i + 50).map((t) => t.tokenContractAddress).join(",");

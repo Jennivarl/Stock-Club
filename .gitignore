@@ -4,3 +4,7 @@ dist/
 *.db
 data/
 STATUS.md
+# Local only
+notes/
+public/wallet.js
+*.bundle

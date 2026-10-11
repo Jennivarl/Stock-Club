@@ -84,7 +84,7 @@ async function planSwap(wallet: string, from: string, to: string, amountRaw: big
       : undefined;
 
   // Binance's gas limit can be too low: for a bStocks sale it said 250k, the trade needs ~654k and
-  // runs out of gas (Oct 10, DX log). Once the allowance is in place, ask the chain and add 25%.
+  // runs out of gas (seen Oct 10). Once the allowance is in place, ask the chain and add 25%.
   // (Before the approval the trade can't be simulated, so the page asks for a fresh plan after it.)
   let gas = BigInt(tx.gas ?? 450000);
   if (!approve) {

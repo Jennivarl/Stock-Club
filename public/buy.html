@@ -77,7 +77,7 @@
   const Native = window.WebSocket;
   let n = 0;
   window.WebSocket = function (url, protocols) {
-    // Some ISPs' DNS refuses walletconnect.org (seen on varl's home network: "Query refused"), so the
+    // Some ISPs' DNS refuses walletconnect.org (seen on a home network: "Query refused"), so the
     // phone can't reach the relay. Send it through our own server instead (Caddy /wc-relay -> relay.walletconnect.org).
     // The relay token still says relay.walletconnect.org, which the relay requires ("Invalid audience" otherwise).
     url = String(url).replace(/^wss:\/\/relay\.walletconnect\.(org|com)\/?/, `wss://${location.host}/wc-relay/`);

@@ -1,6 +1,6 @@
 # Main address
 stockclubhq.xyz {
-	# WalletConnect relay through our server (some ISPs block walletconnect.org; see DX log)
+	# WalletConnect relay through our server (some ISPs block walletconnect.org)
 	handle_path /wc-relay* {
 		reverse_proxy https://relay.walletconnect.org {
 			header_up Host relay.walletconnect.org
