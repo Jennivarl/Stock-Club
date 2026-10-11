@@ -647,7 +647,7 @@ async function loginTG() {
   if (!window.Telegram?.Login?.auth || !appInfo.botId) { toast("Telegram login didn't load. Refresh the page and try again.", "bad"); return; }
   window.Telegram.Login.auth({ bot_id: appInfo.botId, request_access: "write" }, (user) => {
     if (!user) return toast("Login cancelled.", "info");
-    store.set("tglogin", JSON.stringify(user)); location.reload();
+    store.set("tglogin", JSON.stringify(user)); store.set("resumeSetup", "1"); location.reload();
   });
 }
 const loginBtn = (cls = "") => `<button class="btn ${cls}" data-login>${icon("users", "sm")}Log in with Telegram</button>`;
@@ -678,6 +678,7 @@ async function loadMe() {
   try { me = await api("me"); } catch { me = null; }
   if (me?.reset) { for (const k of ["onboarded", "wallet", "didTrade"]) store.set(k, ""); showOnboarding(0); }
   if (me) $("hello").textContent = `Hi ${me.user.name}`;
+  if (me && $("ob").classList.contains("on") && slide >= SLIDES.length) renderChecklist();
   setupWebLogin();
   renderClubs(); renderStart();
 }
@@ -1289,7 +1290,9 @@ document.querySelector("#v-home .brand").onclick = () => { haptic(); showOnboard
 
 // ---------- start ----------
 (async () => {
-  if (store.get("onboarded") !== "1") showOnboarding(0);
+  // Just logged in on the website during setup: go back to the checklist, not the first intro slide.
+  if (store.get("resumeSetup") === "1") { store.set("resumeSetup", ""); showOnboarding(SLIDES.length); }
+  else if (store.get("onboarded") !== "1") showOnboarding(0);
   loadSparks();
   // Opened from a group's "View NVDA chart" button (t.me/<bot>/app?startapp=NVDA): go straight to that stock.
   // Links into the app: ?startapp=NVDA (a stock), ?startapp=intro or ?intro=1 (the intro), ?tab=port (Portfolio)

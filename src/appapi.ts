@@ -202,6 +202,7 @@ export async function handleApp(api: Api, req: http.IncomingMessage, url: URL, s
 
   // Inside Telegram: the Mini App's signed initData. On the website: the signed "Log in with Telegram" data.
   const user = userFromInitData(String(req.headers["x-init-data"] ?? "")) ?? userFromLoginWidget(String(req.headers["x-tg-login"] ?? ""));
+  if (!req.headers["x-init-data"] && req.headers["x-tg-login"] && url.pathname === "/api/app/me") console.log("web login", user ? `ok ${user.id}` : "REJECTED");
   if (!user) { send(401, { error: "Open this from Telegram." }); return true; }
 
   if (req.method === "GET" && url.pathname === "/api/app/me") {
